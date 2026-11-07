@@ -344,8 +344,245 @@ footer.site { padding: 2.8rem 0; text-align:center; color: var(--muted); font-si
 .topbar-link-subtle { opacity: 0.8; font-size: 0.85rem; }
 .topbar-link-danger { color: #f5c2bb !important; opacity: 0.8; padding: 0.3rem 0.5rem; }
 
-.page { padding: 2rem 0 4.5rem; }
-.admin-page { max-width: 960px; }
+/* ===== Formulaire Édition Admin (Mobile-First) ===== */
+.form-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1.4rem;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-decoration: none;
+  margin-bottom: 0.3rem;
+  transition: color .2s;
+}
+.back-link:hover {
+  color: var(--gold);
+}
+.form-title {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+.form-header-badges {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.admin-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+}
+.action-subcard {
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.copybox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.copybox {
+  display: flex;
+  gap: 0.35rem;
+}
+.copybox input {
+  margin-top: 0;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+  background: #faf7f2;
+}
+.cagnotte-pill {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.8rem;
+}
+.cagnotte-pill strong {
+  font-size: 1.4rem;
+  color: var(--ink);
+}
+.action-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.admin-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+.form-section-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.35rem 1.4rem;
+  box-shadow: var(--shadow-sm);
+}
+.form-section-title {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.6rem;
+}
+
+/* Grille du Programme */
+.program-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.6rem;
+}
+.program-item-card {
+  background: #faf7f2;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.9rem;
+  position: relative;
+}
+.program-step-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 0.4rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+  cursor: pointer;
+  margin-bottom: 0.6rem;
+}
+
+/* Floating bottom action bar */
+.form-floating-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  background: rgba(250, 247, 242, 0.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+  padding: 1rem 0;
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
+/* Photos upload & grid */
+.upload-bar {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.2rem;
+  flex-wrap: wrap;
+}
+.file-input {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px dashed var(--gold);
+  border-radius: 10px;
+}
+.photos-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+.photo-admin-card {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  box-shadow: var(--shadow-sm);
+}
+.photo-admin-card.is-cover {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(184, 145, 63, 0.4);
+}
+.photo-admin-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-admin-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.8) 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0.4rem;
+}
+.badge-cover-btn {
+  background: rgba(255, 255, 255, 0.92);
+  border: 0;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.25rem 0.45rem;
+  cursor: pointer;
+  color: #1a1408;
+}
+.badge-delete-btn {
+  background: rgba(194, 65, 45, 0.9);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  padding: 0.25rem 0.45rem;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .form-section-card {
+    padding: 1rem;
+  }
+  .form-title {
+    font-size: 1.35rem;
+  }
+  .admin-quick-actions {
+    grid-template-columns: 1fr;
+  }
+  .form-floating-bar {
+    justify-content: stretch;
+  }
+  .form-floating-bar .btn {
+    flex: 1;
+  }
+  .upload-bar {
+    flex-direction: column;
+  }
+  .photos-admin-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+}
 
 /* Alert box */
 .alert-box-subtle {
