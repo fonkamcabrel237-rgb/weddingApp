@@ -1,96 +1,147 @@
 <%- include('../partials/head', { title: 'Tableau de bord', noindex: true }) %>
 <%- include('../partials/admin-nav') %>
-<div class="container page">
+<div class="container page admin-page">
   <% if (flash) { %><div class="flash"><i class="fa-solid fa-circle-check"></i> <%= flash %></div><% } %>
-  <% if (paymentMode !== 'live') { %><div class="error" style="margin-bottom:1rem"><i class="fa-solid fa-triangle-exclamation"></i> Paiements en mode <strong><%= paymentMode === 'demo' ? 'DÉMO (simulés)' : 'désactivé' %></strong> — ajoute NOTCHPAY_PUBLIC_KEY dans .env pour encaisser la cagnotte.</div><% } %>
+  <% if (paymentMode !== 'live') { %>
+    <div class="alert-box-subtle">
+      <i class="fa-solid fa-circle-info"></i>
+      <div>Mode <strong>DÉMO</strong> (Notch Pay simulé). Pour encaisser en réel : renseigne <code>NOTCHPAY_PUBLIC_KEY</code> dans <code>.env</code>.</div>
+    </div>
+  <% } %>
 
-  <div class="grid g4">
-    <div class="card kpi"><b><%= fmtMoney(kpi.cashed) %></b><span><i class="fa-solid fa-coins" style="color:var(--gold)"></i> Chiffre d'affaires encaissé</span></div>
-    <div class="card kpi"><b><%= fmtMoney(kpi.pending) %></b><span><i class="fa-solid fa-clock" style="color:#8a6a00"></i> En attente de paiement</span></div>
-    <div class="card kpi"><b><%= kpi.published || 0 %> / <%= kpi.total || 0 %></b><span><i class="fa-solid fa-globe" style="color:var(--green)"></i> Faire-part publiés / total</span></div>
-    <div class="card kpi"><b><%= fmtMoney(kpi.commissions) %></b><span><i class="fa-solid fa-handshake" style="color:var(--gold)"></i> Commissions partenaires dues</span></div>
-    <div class="card kpi"><b><%= fmtMoney(kpi.cagnotte) %></b><span><i class="fa-solid fa-gift" style="color:var(--gold)"></i> Cagnottes (dont <%= fmtMoney(kpi.cagFees) %> de frais)</span></div>
-    <div class="card kpi"><b><%= fmtMoney(kpi.toPay) %></b><span><i class="fa-solid fa-money-bill-transfer" style="color:var(--red)"></i> À reverser aux couples</span></div>
+  <div class="kpi-grid">
+    <div class="kpi-card highlight">
+      <span class="kpi-label"><i class="fa-solid fa-coins"></i> CA Encaissé</span>
+      <b class="kpi-num"><%= fmtMoney(kpi.cashed) %></b>
+      <span class="kpi-sub"><%= kpi.published || 0 %> contrat(s) en ligne</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label"><i class="fa-solid fa-clock"></i> En attente</span>
+      <b class="kpi-num"><%= fmtMoney(kpi.pending) %></b>
+      <span class="kpi-sub"><%= (kpi.total || 0) - (kpi.published || 0) %> brouillon(s)</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label"><i class="fa-solid fa-gift"></i> Cagnottes reçues</span>
+      <b class="kpi-num"><%= fmtMoney(kpi.cagnotte) %></b>
+      <span class="kpi-sub">Frais : <%= fmtMoney(kpi.cagFees) %></span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label"><i class="fa-solid fa-handshake"></i> Com. Partenaires</span>
+      <b class="kpi-num"><%= fmtMoney(kpi.commissions) %></b>
+      <span class="kpi-sub">À reverser couples : <%= fmtMoney(kpi.toPay) %></span>
+    </div>
   </div>
 
   <% const newLeads = leads.filter(l => l.status === 'new'); %>
   <div class="section-h" id="leads">
-    <h2><i class="fa-solid fa-inbox" style="color:var(--gold)"></i> Commandes <% if (newLeads.length) { %><span class="badge b-new"><%= newLeads.length %> nouvelle(s)</span><% } %></h2>
+    <h2><i class="fa-solid fa-inbox" style="color:var(--gold)"></i> Commandes entrantes <% if (newLeads.length) { %><span class="badge b-new"><%= newLeads.length %></span><% } %></h2>
   </div>
-  <div class="card table-wrap">
-    <% if (!leads.length) { %><p class="muted">Aucune commande pour l'instant. Partage ton lien : <code><%= baseUrl %></code></p><% } else { %>
-    <table>
-      <thead>
-        <tr><th>Date</th><th>Couple</th><th>Événement</th><th>Formule</th><th>Partenaire</th><th>Statut</th><th></th></tr>
-      </thead>
-      <tbody>
+
+  <% if (!leads.length) { %>
+    <div class="card empty-card"><p class="muted">Aucune commande pour l'instant. Votre lien public : <code><%= baseUrl %></code></p></div>
+  <% } else { %>
+    <div class="mobile-cards-list">
       <% leads.forEach(function(l) { %>
-        <tr>
-          <td class="small"><%= l.created_at.slice(0, 16) %></td>
-          <td><strong><%= l.bride %> &amp; <%= l.groom %></strong><br><span class="small muted"><i class="fa-brands fa-whatsapp"></i> <%= prettyPhone(l.phone) %></span></td>
-          <td class="small"><%= l.event_date ? fmtDate(l.event_date, { weekday: undefined }) : '—' %><br><%= l.city || '' %></td>
-          <td><%= (PLANS[l.plan] || {}).name || l.plan %></td>
-          <td class="small"><%= l.partner || '—' %></td>
-          <td>
+        <div class="admin-item-card">
+          <div class="admin-item-header">
+            <div>
+              <h3 class="admin-item-title"><%= l.bride %> &amp; <%= l.groom %></h3>
+              <span class="admin-item-meta"><i class="fa-solid fa-calendar-day"></i> <%= l.event_date ? fmtDate(l.event_date, { weekday: undefined }) : 'Date non fixée' %> <%= l.city ? '· ' + l.city : '' %></span>
+            </div>
+            <span class="badge b-<%= l.status %>"><%= { new: 'Nouveau', contacted: 'Contacté', won: 'Gagné', lost: 'Perdu' }[l.status] %></span>
+          </div>
+
+          <div class="admin-item-body">
+            <div><span class="meta-label">Formule :</span> <strong><%= (PLANS[l.plan] || {}).name || l.plan %></strong></div>
+            <div><span class="meta-label">WhatsApp :</span> <%= prettyPhone(l.phone) %></div>
+            <% if (l.partner) { %><div><span class="meta-label">Apporteur :</span> <%= l.partner %></div><% } %>
+          </div>
+
+          <div class="admin-item-footer">
             <form class="inline" method="post" action="/admin/leads/<%= l.id %>/status">
-              <select name="status" onchange="this.form.submit()" style="margin:0;padding:.3rem .5rem;font-size:.8rem">
+              <select name="status" onchange="this.form.submit()" class="status-select">
                 <% ['new', 'contacted', 'won', 'lost'].forEach(function(s) { %><option value="<%= s %>" <%= l.status === s ? 'selected' : '' %>><%= { new: 'Nouveau', contacted: 'Contacté', won: 'Gagné', lost: 'Perdu' }[s] %></option><% }) %>
               </select>
             </form>
-          </td>
-          <td class="row">
-            <a class="btn btn-wa btn-sm" target="_blank" href="<%= waLink(l.phone, 'Bonjour ' + l.bride + ' & ' + l.groom + ' 💍 Ici ' + brand + ' ! Merci pour votre commande. Votre aperçu est prêt : ' + baseUrl + '/i/' + ((weddings.find(w => w.id === l.wedding_id) || {}).slug || '') + '\nQue souhaitez-vous ajuster avant publication ?') %>"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
-            <% if (l.wedding_id) { %><a class="btn btn-outline btn-sm" href="/admin/mariages/<%= l.wedding_id %>"><i class="fa-solid fa-pen-to-square"></i> Éditer</a><% } %>
-          </td>
-        </tr>
+            <div class="admin-item-actions">
+              <a class="btn btn-wa btn-sm" target="_blank" href="<%= waLink(l.phone, 'Bonjour ' + l.bride + ' & ' + l.groom + ' 💍 Ici ' + brand + ' ! Merci pour votre commande. Votre aperçu est prêt : ' + baseUrl + '/i/' + ((weddings.find(w => w.id === l.wedding_id) || {}).slug || '') + '\nQue souhaitez-vous ajuster avant publication ?') %>"><i class="fa-brands fa-whatsapp"></i> Contacter</a>
+              <% if (l.wedding_id) { %><a class="btn btn-outline btn-sm" href="/admin/mariages/<%= l.wedding_id %>"><i class="fa-solid fa-pen-to-square"></i></a><% } %>
+            </div>
+          </div>
+        </div>
       <% }) %>
-      </tbody>
-    </table>
-    <% } %>
-  </div>
+    </div>
+  <% } %>
 
   <div class="section-h">
-    <h2><i class="fa-solid fa-envelope-open" style="color:var(--gold)"></i> Faire-part</h2>
-    <a class="btn btn-gold btn-sm" href="/admin/mariages/new"><i class="fa-solid fa-plus"></i> Nouveau faire-part</a>
+    <h2><i class="fa-solid fa-envelope-open" style="color:var(--gold)"></i> Faire-part (<%= weddings.length %>)</h2>
+    <a class="btn btn-gold btn-sm" href="/admin/mariages/new"><i class="fa-solid fa-plus"></i> Nouveau</a>
   </div>
-  <div class="card table-wrap">
-    <table>
-      <thead>
-        <tr><th>Couple</th><th>Date</th><th>Statut</th><th>Paiement</th><th>Vues</th><th>RSVP</th><th>Cagnotte</th><th></th></tr>
-      </thead>
-      <tbody>
-      <% weddings.forEach(function(w) { %>
-        <tr>
-          <td><a href="/admin/mariages/<%= w.id %>"><strong><%= coupleNames(w) %></strong></a><br><span class="small muted"><%= (PLANS[w.plan] || {}).name %><%= w.partner ? ' · via ' + w.partner : '' %></span></td>
-          <td class="small"><%= w.event_date ? fmtDate(w.event_date, { weekday: undefined }) : '—' %></td>
-          <td><span class="badge b-<%= w.status %>"><%= { draft: 'Brouillon', published: 'En ligne', archived: 'Archivé' }[w.status] %></span></td>
-          <td><span class="badge <%= w.paid ? 'b-paid' : 'b-pending' %>"><%= w.paid ? 'Payé' : 'À payer' %></span> <span class="small"><%= fmtMoney(w.price) %></span></td>
-          <td><i class="fa-regular fa-eye"></i> <%= w.views %></td>
-          <td class="small"><i class="fa-solid fa-check" style="color:var(--green)"></i> <%= w.s.guests.yes %> (<%= w.s.guests.people %> pers.) · <i class="fa-regular fa-clock" style="color:#8a6a00"></i> <%= w.s.guests.pending %></td>
-          <td class="small"><%= fmtMoney(w.s.cagnotte.total) %><% if (w.s.cagnotte.total && !w.payout_done) { %><br><span class="badge b-pending">à reverser</span><% } %></td>
-          <td class="row">
-            <a class="btn btn-outline btn-sm" target="_blank" href="/i/<%= w.slug %>"><i class="fa-regular fa-eye"></i> Voir</a>
-            <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>"><i class="fa-solid fa-user-gear"></i> Espace</a>
-          </td>
-        </tr>
-      <% }) %>
-      </tbody>
-    </table>
+
+  <div class="mobile-cards-list">
+    <% weddings.forEach(function(w) { %>
+      <div class="admin-item-card">
+        <div class="admin-item-header">
+          <div>
+            <h3 class="admin-item-title"><a href="/admin/mariages/<%= w.id %>"><%= coupleNames(w) %></a></h3>
+            <span class="admin-item-meta"><i class="fa-solid fa-calendar-day"></i> <%= w.event_date ? fmtDate(w.event_date, { weekday: undefined }) : 'Date à définir' %></span>
+          </div>
+          <div class="row" style="gap:.3rem">
+            <span class="badge b-<%= w.status %>"><%= { draft: 'Brouillon', published: 'En ligne', archived: 'Archivé' }[w.status] %></span>
+            <span class="badge <%= w.paid ? 'b-paid' : 'b-pending' %>"><%= w.paid ? 'Payé' : 'À payer' %></span>
+          </div>
+        </div>
+
+        <div class="admin-item-stats">
+          <div class="stat-box">
+            <span class="sb-num"><%= fmtMoney(w.price) %></span>
+            <span class="sb-label">Tarif (<%= (PLANS[w.plan] || {}).name %>)</span>
+          </div>
+          <div class="stat-box">
+            <span class="sb-num"><%= w.s.guests.yes %></span>
+            <span class="sb-label">Confirmés (<%= w.s.guests.people %> pers.)</span>
+          </div>
+          <div class="stat-box">
+            <span class="sb-num"><%= fmtMoney(w.s.cagnotte.total) %></span>
+            <span class="sb-label">Cagnotte</span>
+          </div>
+          <div class="stat-box">
+            <span class="sb-num"><%= w.views %></span>
+            <span class="sb-label">Vues</span>
+          </div>
+        </div>
+
+        <div class="admin-item-footer">
+          <span class="small muted"><%= w.partner ? 'Partenaire: ' + w.partner : 'Direct' %></span>
+          <div class="admin-item-actions">
+            <a class="btn btn-outline btn-sm" target="_blank" href="/i/<%= w.slug %>"><i class="fa-regular fa-eye"></i> Faire-part</a>
+            <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>"><i class="fa-solid fa-users-gear"></i> Espace</a>
+            <a class="btn btn-gold btn-sm" href="/admin/mariages/<%= w.id %>"><i class="fa-solid fa-pen"></i> Gérer</a>
+          </div>
+        </div>
+      </div>
+    <% }) %>
   </div>
 
   <% if (partners.length) { %>
-  <div class="section-h"><h2><i class="fa-solid fa-handshake" style="color:var(--gold)"></i> Partenaires</h2></div>
-  <div class="card table-wrap">
-    <table>
-      <thead>
-        <tr><th>Partenaire</th><th>Couples apportés</th><th>Payés</th><th>Commission due</th></tr>
-      </thead>
-      <tbody>
-      <% partners.forEach(function(p) { %><tr><td><strong><%= p.partner %></strong></td><td><%= p.n %></td><td><%= p.paid %></td><td><%= fmtMoney(p.due) %></td></tr><% }) %>
-      </tbody>
-    </table>
-    <p class="muted small" style="margin-top:.8rem"><i class="fa-solid fa-link"></i> Lien de parrainage à donner à un partenaire : <code><%= baseUrl %>/?ref=NomDuPartenaire#commander</code></p>
-  </div>
+    <div class="section-h"><h2><i class="fa-solid fa-handshake" style="color:var(--gold)"></i> Partenaires</h2></div>
+    <div class="mobile-cards-list">
+      <% partners.forEach(function(p) { %>
+        <div class="admin-item-card">
+          <div class="admin-item-header">
+            <strong><%= p.partner %></strong>
+            <span class="badge b-won"><%= p.n %> contrat(s)</span>
+          </div>
+          <div class="row between" style="margin-top:.4rem">
+            <span class="small muted">Payés : <%= p.paid %></span>
+            <span class="small">Commission due : <strong><%= fmtMoney(p.due) %></strong></span>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+    <div class="card" style="margin-top:1rem;padding:1rem;background:#fff">
+      <small class="muted"><i class="fa-solid fa-link"></i> Lien de parrainage :<br><code style="word-break:break-all"><%= baseUrl %>/?ref=NomDuPartenaire#commander</code></small>
+    </div>
   <% } %>
 </div>
 </body></html>
