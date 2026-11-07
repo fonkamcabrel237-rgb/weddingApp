@@ -71,14 +71,14 @@ h1, h2, h3 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600
   border-color: rgba(184, 145, 63, 0.35);
 }
 
-.grid { display:grid; gap: 1.2rem; }
+.grid { display:grid; gap: 1.2rem; width: 100%; }
 .g2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .g3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .g4 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
-label { display:block; font-size:.85rem; font-weight:500; color: var(--muted); margin-bottom:.8rem; }
+label { display:block; font-size:.85rem; font-weight:500; color: var(--muted); margin-bottom:.8rem; max-width: 100%; }
 input, select, textarea { 
-  display:block; width:100%; margin-top:.35rem; padding:.75rem .9rem; 
+  display:block; width:100%; max-width: 100%; box-sizing: border-box; margin-top:.35rem; padding:.75rem .9rem; 
   border-radius:12px; border:1px solid var(--line); background:#fff; 
   color: var(--ink); font: .95rem Inter, sans-serif;
   transition: border-color .2s ease, box-shadow .2s ease;
@@ -158,11 +158,14 @@ form.inline { display:inline; }
 
 /* Titre du hero en 3 lignes maximum, équilibré et percutant */
 .hero-title {
-  font-size: clamp(2.3rem, 5.2vw, 3.7rem);
-  line-height: 1.12;
+  font-size: clamp(2.2rem, 4.4vw, 3.4rem);
+  line-height: 1.15;
   margin: 0.6rem 0 1rem;
   letter-spacing: -0.015em;
-  max-width: 680px;
+  max-width: 650px;
+}
+.hero-title span.line {
+  display: block;
 }
 .hero-title em { 
   font-style: normal; 
@@ -273,7 +276,30 @@ section.s.alt { background: #fff; border-top:1px solid var(--line); border-botto
 .plan li { padding:.4rem 0 .4rem 1.6rem; position:relative; font-size:.92rem; }
 .plan li i { position:absolute; left:0; top:.55rem; color: var(--gold); }
 
-.order { max-width: 760px; margin: 0 auto; }
+/* Responsive Mobile-First Form & Grid Fixes */
+@media (max-width: 640px) {
+  .g2, .g3, .g4 { 
+    grid-template-columns: 1fr !important; 
+    gap: 0.9rem;
+  }
+  .card { 
+    padding: 1.1rem; 
+    max-width: 100%;
+  }
+  .order {
+    padding: 0;
+  }
+  .hero-title {
+    font-size: clamp(2rem, 8vw, 2.5rem);
+  }
+  .hero-l {
+    padding: 3rem 0 2.5rem;
+  }
+  .btn {
+    white-space: normal;
+    text-align: center;
+  }
+}
 
 /* Flottant WhatsApp animé */
 .wa-float { 
@@ -281,9 +307,14 @@ section.s.alt { background: #fff; border-top:1px solid var(--line); border-botto
   width: 60px; height: 60px; border-radius:50%; background:#25d366; 
   display:grid; place-items:center; 
   box-shadow: 0 10px 25px -5px rgba(37, 211, 102, 0.5); 
-  color: #fff; font-size: 1.85rem; text-decoration: none;
+  text-decoration: none;
   transition: transform .25s ease, box-shadow .25s ease;
   animation: pulseWa 3s infinite;
+}
+.wa-float i, .wa-float svg {
+  color: #000000 !important;
+  fill: #000000 !important;
+  font-size: 2rem;
 }
 .wa-float:hover { 
   transform: scale(1.1); 

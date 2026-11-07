@@ -8,8 +8,8 @@
       <a href="#fonctionnalites">Fonctionnalités</a>
       <a href="#tarifs">Tarifs</a>
       <a href="#partenaires">Partenaires</a>
-      <% if (demo) { %><a href="/i/<%= demo.slug %>" target="_blank"><i class="fa-regular fa-eye"></i> Démo</a><% } %>
-      <a class="btn btn-gold btn-sm" href="#commander"><i class="fa-solid fa-wand-magic-sparkles"></i> Commander</a>
+      <% if (demo) { %><a href="/i/<%= demo.slug %>" target="_blank">Démo</a><% } %>
+      <a class="btn btn-gold btn-sm" href="#commander">Commander</a>
     </div>
   </div>
 </nav>
@@ -19,19 +19,14 @@
     <div>
       <p class="badge"><i class="fa-solid fa-location-dot" style="color:var(--gold)"></i> Douala · Yaoundé · Bafoussam · Kribi · Diaspora</p>
       <h1 class="hero-title">
-        Votre faire-part de mariage,<br>
-        <em>dans le WhatsApp</em><br>
-        de tous vos invités.
+        <span class="line">Votre faire-part de mariage,</span>
+        <span class="line"><em>dans le WhatsApp</em></span>
+        <span class="line">de vos invités.</span>
       </h1>
       <p class="lead">Une invitation digitale élégante avec compte à rebours, itinéraire GPS jusqu'à la salle, galerie photo, confirmation de présence et <strong>cagnotte MoMo / Orange Money</strong>. Prête en 48h, à partir de 35 000 FCFA.</p>
       <div class="row" style="margin-top:1.4rem">
-        <a class="btn btn-gold" href="#commander"><i class="fa-solid fa-envelope-open-text"></i> Créer mon faire-part</a>
-        <% if (demo) { %><a class="btn btn-outline" href="/i/<%= demo.slug %>" target="_blank"><i class="fa-regular fa-eye"></i> Voir un exemple</a><% } %>
-      </div>
-      <div class="trust">
-        <span><i class="fa-solid fa-circle-check"></i> Moins cher que 200 cartons</span>
-        <span><i class="fa-solid fa-circle-check"></i> RSVP en temps réel</span>
-        <span><i class="fa-solid fa-circle-check"></i> Zéro carton perdu</span>
+        <a class="btn btn-gold" href="#commander">Créer mon faire-part</a>
+        <% if (demo) { %><a class="btn btn-outline" href="/i/<%= demo.slug %>" target="_blank">Voir un exemple</a><% } %>
       </div>
     </div>
     <div class="phone" aria-hidden="true">
