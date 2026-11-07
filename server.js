@@ -22,7 +22,10 @@ app.post('/webhooks/notchpay', express.raw({ type: '*/*', limit: '1mb' }), requi
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser(process.env.SESSION_SECRET || 'dev-secret'));
-app.use('/static', express.static(path.join(__dirname, 'public'), { maxAge: '7d' }));
+app.use('/static', express.static(path.join(__dirname, 'public'), { 
+  maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+  etag: false
+}));
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true }));
 
 // Variables disponibles dans toutes les vues
