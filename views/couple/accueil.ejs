@@ -1,0 +1,25 @@
+<%- include('../partials/head', { title: 'Accueil — ' + coupleNames(w), noindex: true }) %>
+<div class="topbar"><div class="container"><span class="logo">🎟️ Accueil</span><a href="/espace/<%= w.slug %>">← Espace</a></div></div>
+<div class="container page" style="max-width:720px">
+  <h1 style="font-size:2rem;margin-bottom:.2rem"><%= coupleNames(w) %></h1>
+  <p class="muted">Arrivés : <strong><%= s.guests.checkedIn %></strong> / <%= s.guests.yes %> invités confirmés (<%= s.guests.people %> personnes)</p>
+  <div class="card" style="margin-bottom:1rem">
+    <p style="margin-top:0"><strong>📷 Scanner un pass :</strong> ouvrez l'appareil photo du téléphone et visez le QR code de l'invité. La fiche s'ouvre automatiquement.</p>
+    <form method="get" class="row"><input name="s" value="<%= search %>" placeholder="Ou rechercher un nom…" style="flex:1;margin:0"><button class="btn btn-sm">Rechercher</button></form>
+  </div>
+  <div class="card table-wrap">
+    <table>
+      <% if (!guests.length) { %><tr><td class="muted">Aucun invité confirmé trouvé.</td></tr><% } %>
+      <% guests.forEach(function(g) { %>
+        <tr>
+          <td><strong><%= g.name %></strong><br><span class="small muted"><%= g.attending_count %> pers. · <%= g.token.toUpperCase() %></span></td>
+          <td style="text-align:right">
+            <% if (g.checked_in_at) { %><span class="badge b-yes">✓ arrivé <%= g.checked_in_at.slice(11, 16) %> UTC</span>
+            <% } else { %><form class="inline" method="post" action="/espace/<%= w.slug %>/checkin/<%= g.token %>"><input type="hidden" name="back" value="accueil"><button class="btn btn-gold btn-sm">Valider l'entrée</button></form><% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </table>
+  </div>
+</div>
+</body></html>

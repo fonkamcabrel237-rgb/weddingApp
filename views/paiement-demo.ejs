@@ -1,0 +1,13 @@
+<%- include('partials/simple-head', { title: 'Paiement (démo)' }) %>
+  <div class="card">
+    <p class="small-caps">Mode démonstration</p>
+    <h1>Simulation MoMo / OM</h1>
+    <p>Contribution de <strong><%= fmtMoney(contrib.amount) %></strong> pour <%= coupleNames(w) %>.</p>
+    <p class="muted" style="font-size:.85rem">Aucune vraie transaction. Ajoute ta clé NOTCHPAY_PUBLIC_KEY dans .env pour encaisser réellement.</p>
+    <form method="post" action="/paiement/demo">
+      <input type="hidden" name="reference" value="<%= contrib.reference %>">
+      <button class="btn btn-gold btn-block" name="result" value="ok">✅ Simuler un paiement réussi</button>
+      <button class="btn btn-outline btn-block" name="result" value="fail">❌ Simuler un échec</button>
+    </form>
+  </div>
+</main></body></html>

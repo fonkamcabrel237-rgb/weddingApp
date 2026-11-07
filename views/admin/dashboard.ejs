@@ -1,0 +1,96 @@
+<%- include('../partials/head', { title: 'Tableau de bord', noindex: true }) %>
+<%- include('../partials/admin-nav') %>
+<div class="container page">
+  <% if (flash) { %><div class="flash"><i class="fa-solid fa-circle-check"></i> <%= flash %></div><% } %>
+  <% if (paymentMode !== 'live') { %><div class="error" style="margin-bottom:1rem"><i class="fa-solid fa-triangle-exclamation"></i> Paiements en mode <strong><%= paymentMode === 'demo' ? 'DÉMO (simulés)' : 'désactivé' %></strong> — ajoute NOTCHPAY_PUBLIC_KEY dans .env pour encaisser la cagnotte.</div><% } %>
+
+  <div class="grid g4">
+    <div class="card kpi"><b><%= fmtMoney(kpi.cashed) %></b><span><i class="fa-solid fa-coins" style="color:var(--gold)"></i> Chiffre d'affaires encaissé</span></div>
+    <div class="card kpi"><b><%= fmtMoney(kpi.pending) %></b><span><i class="fa-solid fa-clock" style="color:#8a6a00"></i> En attente de paiement</span></div>
+    <div class="card kpi"><b><%= kpi.published || 0 %> / <%= kpi.total || 0 %></b><span><i class="fa-solid fa-globe" style="color:var(--green)"></i> Faire-part publiés / total</span></div>
+    <div class="card kpi"><b><%= fmtMoney(kpi.commissions) %></b><span><i class="fa-solid fa-handshake" style="color:var(--gold)"></i> Commissions partenaires dues</span></div>
+    <div class="card kpi"><b><%= fmtMoney(kpi.cagnotte) %></b><span><i class="fa-solid fa-gift" style="color:var(--gold)"></i> Cagnottes (dont <%= fmtMoney(kpi.cagFees) %> de frais)</span></div>
+    <div class="card kpi"><b><%= fmtMoney(kpi.toPay) %></b><span><i class="fa-solid fa-money-bill-transfer" style="color:var(--red)"></i> À reverser aux couples</span></div>
+  </div>
+
+  <% const newLeads = leads.filter(l => l.status === 'new'); %>
+  <div class="section-h" id="leads">
+    <h2><i class="fa-solid fa-inbox" style="color:var(--gold)"></i> Commandes <% if (newLeads.length) { %><span class="badge b-new"><%= newLeads.length %> nouvelle(s)</span><% } %></h2>
+  </div>
+  <div class="card table-wrap">
+    <% if (!leads.length) { %><p class="muted">Aucune commande pour l'instant. Partage ton lien : <code><%= baseUrl %></code></p><% } else { %>
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Couple</th><th>Événement</th><th>Formule</th><th>Partenaire</th><th>Statut</th><th></th></tr>
+      </thead>
+      <tbody>
+      <% leads.forEach(function(l) { %>
+        <tr>
+          <td class="small"><%= l.created_at.slice(0, 16) %></td>
+          <td><strong><%= l.bride %> &amp; <%= l.groom %></strong><br><span class="small muted"><i class="fa-brands fa-whatsapp"></i> <%= prettyPhone(l.phone) %></span></td>
+          <td class="small"><%= l.event_date ? fmtDate(l.event_date, { weekday: undefined }) : '—' %><br><%= l.city || '' %></td>
+          <td><%= (PLANS[l.plan] || {}).name || l.plan %></td>
+          <td class="small"><%= l.partner || '—' %></td>
+          <td>
+            <form class="inline" method="post" action="/admin/leads/<%= l.id %>/status">
+              <select name="status" onchange="this.form.submit()" style="margin:0;padding:.3rem .5rem;font-size:.8rem">
+                <% ['new', 'contacted', 'won', 'lost'].forEach(function(s) { %><option value="<%= s %>" <%= l.status === s ? 'selected' : '' %>><%= { new: 'Nouveau', contacted: 'Contacté', won: 'Gagné', lost: 'Perdu' }[s] %></option><% }) %>
+              </select>
+            </form>
+          </td>
+          <td class="row">
+            <a class="btn btn-wa btn-sm" target="_blank" href="<%= waLink(l.phone, 'Bonjour ' + l.bride + ' & ' + l.groom + ' 💍 Ici ' + brand + ' ! Merci pour votre commande. Votre aperçu est prêt : ' + baseUrl + '/i/' + ((weddings.find(w => w.id === l.wedding_id) || {}).slug || '') + '\nQue souhaitez-vous ajuster avant publication ?') %>"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+            <% if (l.wedding_id) { %><a class="btn btn-outline btn-sm" href="/admin/mariages/<%= l.wedding_id %>"><i class="fa-solid fa-pen-to-square"></i> Éditer</a><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+
+  <div class="section-h">
+    <h2><i class="fa-solid fa-envelope-open" style="color:var(--gold)"></i> Faire-part</h2>
+    <a class="btn btn-gold btn-sm" href="/admin/mariages/new"><i class="fa-solid fa-plus"></i> Nouveau faire-part</a>
+  </div>
+  <div class="card table-wrap">
+    <table>
+      <thead>
+        <tr><th>Couple</th><th>Date</th><th>Statut</th><th>Paiement</th><th>Vues</th><th>RSVP</th><th>Cagnotte</th><th></th></tr>
+      </thead>
+      <tbody>
+      <% weddings.forEach(function(w) { %>
+        <tr>
+          <td><a href="/admin/mariages/<%= w.id %>"><strong><%= coupleNames(w) %></strong></a><br><span class="small muted"><%= (PLANS[w.plan] || {}).name %><%= w.partner ? ' · via ' + w.partner : '' %></span></td>
+          <td class="small"><%= w.event_date ? fmtDate(w.event_date, { weekday: undefined }) : '—' %></td>
+          <td><span class="badge b-<%= w.status %>"><%= { draft: 'Brouillon', published: 'En ligne', archived: 'Archivé' }[w.status] %></span></td>
+          <td><span class="badge <%= w.paid ? 'b-paid' : 'b-pending' %>"><%= w.paid ? 'Payé' : 'À payer' %></span> <span class="small"><%= fmtMoney(w.price) %></span></td>
+          <td><i class="fa-regular fa-eye"></i> <%= w.views %></td>
+          <td class="small"><i class="fa-solid fa-check" style="color:var(--green)"></i> <%= w.s.guests.yes %> (<%= w.s.guests.people %> pers.) · <i class="fa-regular fa-clock" style="color:#8a6a00"></i> <%= w.s.guests.pending %></td>
+          <td class="small"><%= fmtMoney(w.s.cagnotte.total) %><% if (w.s.cagnotte.total && !w.payout_done) { %><br><span class="badge b-pending">à reverser</span><% } %></td>
+          <td class="row">
+            <a class="btn btn-outline btn-sm" target="_blank" href="/i/<%= w.slug %>"><i class="fa-regular fa-eye"></i> Voir</a>
+            <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>"><i class="fa-solid fa-user-gear"></i> Espace</a>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <% if (partners.length) { %>
+  <div class="section-h"><h2><i class="fa-solid fa-handshake" style="color:var(--gold)"></i> Partenaires</h2></div>
+  <div class="card table-wrap">
+    <table>
+      <thead>
+        <tr><th>Partenaire</th><th>Couples apportés</th><th>Payés</th><th>Commission due</th></tr>
+      </thead>
+      <tbody>
+      <% partners.forEach(function(p) { %><tr><td><strong><%= p.partner %></strong></td><td><%= p.n %></td><td><%= p.paid %></td><td><%= fmtMoney(p.due) %></td></tr><% }) %>
+      </tbody>
+    </table>
+    <p class="muted small" style="margin-top:.8rem"><i class="fa-solid fa-link"></i> Lien de parrainage à donner à un partenaire : <code><%= baseUrl %>/?ref=NomDuPartenaire#commander</code></p>
+  </div>
+  <% } %>
+</div>
+</body></html>

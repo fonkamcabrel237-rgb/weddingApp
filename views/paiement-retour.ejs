@@ -1,0 +1,20 @@
+<%- include('partials/simple-head', { title: 'Cagnotte' }) %>
+  <div class="card">
+    <% if (contrib.status === 'complete') { %>
+      <div class="big-emoji">🎁</div>
+      <h1 class="script">Merci <%= contrib.name && contrib.name !== 'Anonyme' ? contrib.name.split(' ')[0] : '' %> !</h1>
+      <p>Votre contribution de <strong><%= fmtMoney(contrib.amount) %></strong> a bien été reçue. <%= coupleNames(w) %> vous remercient du fond du cœur.</p>
+    <% } else if (contrib.status === 'pending') { %>
+      <div class="big-emoji">⏳</div>
+      <h1>Paiement en cours…</h1>
+      <p>Validez la transaction sur votre téléphone (code PIN MoMo / Orange Money). Cette page se met à jour automatiquement.</p>
+      <script>setTimeout(function () { location.reload(); }, 6000);</script>
+    <% } else { %>
+      <div class="big-emoji">😕</div>
+      <h1>Paiement non abouti</h1>
+      <p>La transaction a été annulée ou a échoué. Aucun montant n'a été débité.</p>
+      <a class="btn btn-gold btn-block" href="/i/<%= w.slug %>#cagnotte">Réessayer</a>
+    <% } %>
+    <p style="margin-top:1rem"><a class="link" href="/i/<%= w.slug %>">← Retour au faire-part</a></p>
+  </div>
+</main></body></html>

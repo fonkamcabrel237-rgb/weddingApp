@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <% const names = coupleNames(w); const title = (guest ? guest.name + ', ' : '') + names + ' vous invitent'; const venueQuery = w.maps_query || [w.venue_name, w.venue_address, w.city].filter(Boolean).join(', '); %>
+  <title><%= names %> — <%= w.event_type === 'dot' ? 'Dot' : 'Mariage' %></title>
+  <meta name="description" content="<%= w.event_date ? fmtDate(w.event_date) : '' %><%= w.city ? ' · ' + w.city : '' %> — Confirmez votre présence en ligne.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="💍 <%= title %>">
+  <meta property="og:description" content="<%= w.event_date ? fmtDate(w.event_date) : '' %><%= w.city ? ' · ' + w.city : '' %> — Ouvrez votre faire-part et confirmez votre présence.">
+  <meta property="og:url" content="<%= inviteUrl(w, guest) %>">
+  <% if (w.cover_photo) { %><meta property="og:image" content="<%= baseUrl %>/uploads/<%= w.cover_photo %>"><% } %>
+  <% if (isDraft) { %><meta name="robots" content="noindex"><% } %>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Great+Vibes&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="/static/css/invite.css">
+</head>
+<body class="theme-<%= w.theme || 'royal' %>">
+
+<% if (isDraft) { %>
+  <div class="draft-banner">👀 Aperçu privé — ce faire-part n'est pas encore publié. <a href="/espace/<%= w.slug %>">Espace mariés</a></div>
+<% } %>
+
+<!-- Enveloppe d'ouverture -->
+<div class="envelope" id="envelope">
+  <div class="envelope-inner">
+    <p class="small-caps">Vous êtes invité<%= guest ? '' : '(e)' %></p>
+    <% if (guest) { %><p class="guest-name"><%= guest.name %></p><% } %>
+    <div class="seal"><span><%= w.bride.charAt(0) %>&amp;<%= w.groom.charAt(0) %></span></div>
+    <h1 class="script"><%= names %></h1>
+    <button class="btn btn-gold" id="openEnvelope">Ouvrir l'invitation</button>
+  </div>
+</div>
+
+<main id="top">
+  <!-- HERO -->
+  <header class="hero" <% if (w.cover_photo) { %>style="--cover:url('/uploads/<%= w.cover_photo %>')"<% } %>>
+    <div class="hero-overlay"></div>
+    <div class="hero-content reveal">
+      <p class="small-caps"><%= w.headline || 'Nous nous disons OUI !' %></p>
+      <h1 class="script names"><span><%= w.bride %></span><em>&amp;</em><span><%= w.groom %></span></h1>
+      <% if (w.event_date) { %>
+        <p class="hero-date"><%= fmtDate(w.event_date) %></p>
+        <p class="hero-place"><%= [w.venue_name, w.city].filter(Boolean).join(' · ') %></p>
+        <div class="countdown" data-date="<%= parseLocal(w.event_date).toISOString() %>">
+          <div><b data-u="d">0</b><span>jours</span></div>
+          <div><b data-u="h">0</b><span>heures</span></div>
+          <div><b data-u="m">0</b><span>min</span></div>
+          <div><b data-u="s">0</b><span>sec</span></div>
+        </div>
+      <% } %>
+      <a href="#rsvp" class="btn btn-gold">Confirmer ma présence</a>
+    </div>
+    <% if (w.music_url) { %>
+      <button class="music-btn" id="musicBtn" aria-label="Musique">♫</button>
+      <audio id="music" src="<%= w.music_url %>" loop preload="none"></audio>
+    <% } %>
+  </header>
+
+  <% if (guest) { %>
+  <section class="section personal reveal">
+    <p class="script big">Cher(e) <%= guest.name %>,</p>
+    <p>Votre présence à nos côtés rendra ce jour encore plus beau.
+      <% if (guest.seats > 1) { %>Cette invitation est valable pour <strong><%= guest.seats %> personnes</strong>.<% } else { %>Cette invitation vous est personnellement adressée.<% } %></p>
+  </section>
+  <% } %>
+
+  <% if (w.story) { %>
+  <section class="section story reveal">
+    <h2 class="section-title">Notre histoire</h2>
+    <div class="ornament">❦</div>
+    <% w.story.split(/\n+/).forEach(function(p) { %><p><%= p %></p><% }) %>
+    <% if (w.hashtag) { %><p class="hashtag">#<%= w.hashtag.replace(/^#/, '') %></p><% } %>
+  </section>
+  <% } %>
+
+  <!-- PROGRAMME -->
+  <section class="section program reveal" id="programme">
+    <h2 class="section-title">Le programme</h2>
+    <div class="ornament">❦</div>
+    <% const items = program.length ? program : (w.event_date ? [{ title: w.event_type === 'dot' ? 'Cérémonie de la dot' : 'Célébration', date: w.event_date, place: w.venue_name, address: [w.venue_address, w.city].filter(Boolean).join(', ') }] : []); %>
+    <div class="timeline">
+      <% items.forEach(function(it) { %>
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-card">
+            <h3><%= it.title %></h3>
+            <% if (it.date) { %><p class="tl-date"><i class="fa-regular fa-clock"></i> <%= fmtDate(it.date) %><% if (it.date.length > 10) { %> · <%= fmtTime(it.date) %><% } %></p><% } %>
+            <% if (it.place) { %><p class="tl-place"><i class="fa-solid fa-location-dot"></i> <%= it.place %></p><% } %>
+            <% if (it.address) { %><p class="muted"><%= it.address %></p>
+              <a class="link" target="_blank" rel="noopener" href="<%= mapsDirections([it.place, it.address].filter(Boolean).join(', ')) %>"><i class="fa-solid fa-diamond-turn-right"></i> Itinéraire GPS</a><% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+    <% if (w.dress_code) { %>
+      <div class="dress"><span class="small-caps"><i class="fa-solid fa-shirt"></i> Dress code</span><p><%= w.dress_code %></p></div>
+    <% } %>
+  </section>
+
+  <!-- LIEU -->
+  <% if (venueQuery) { %>
+  <section class="section venue reveal" id="lieu">
+    <h2 class="section-title">Le lieu</h2>
+    <div class="ornament">❦</div>
+    <p class="venue-name"><i class="fa-solid fa-champagne-glasses" style="color:var(--accent)"></i> <%= w.venue_name %></p>
+    <p class="muted"><%= [w.venue_address, w.city].filter(Boolean).join(', ') %></p>
+    <div class="map"><iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="<%= mapsEmbed(venueQuery) %>" title="Carte"></iframe></div>
+    <div class="btn-row">
+      <a class="btn btn-gold" target="_blank" rel="noopener" href="<%= mapsDirections(venueQuery) %>"><i class="fa-solid fa-map-location-dot"></i> Google Maps</a>
+      <a class="btn btn-outline" target="_blank" rel="noopener" href="https://waze.com/ul?q=<%= encodeURIComponent(venueQuery) %>&navigate=yes"><i class="fa-brands fa-waze"></i> Waze</a>
+      <a class="btn btn-outline" href="/i/<%= w.slug %>/calendar.ics"><i class="fa-regular fa-calendar-plus"></i> Agenda</a>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- GALERIE -->
+  <% if (photos.length) { %>
+  <section class="section gallery-section reveal" id="galerie">
+    <h2 class="section-title">Nos souvenirs</h2>
+    <div class="ornament">❦</div>
+    <div class="gallery">
+      <% photos.forEach(function(p, i) { %>
+        <button class="g-item" data-src="/uploads/<%= p.filename %>" aria-label="Photo <%= i + 1 %>"><img loading="lazy" src="/uploads/<%= p.filename %>" alt=""></button>
+      <% }) %>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- RSVP -->
+  <section class="section rsvp reveal" id="rsvp">
+    <h2 class="section-title">Serez-vous des nôtres ?</h2>
+    <div class="ornament">❦</div>
+    <% if (w.rsvp_deadline) { %><p class="muted">Merci de répondre avant le <strong><%= fmtDate(w.rsvp_deadline, { weekday: undefined }) %></strong></p><% } %>
+    <% if (error === 'name') { %><p class="alert">Merci d'indiquer votre nom.</p><% } %>
+    <% if (error === 'draft' || isDraft) { %><p class="alert">Les réponses seront ouvertes dès la publication du faire-part.</p><% } %>
+    <% if (guest && guest.status !== 'pending') { %>
+      <p class="alert ok">Nous avons bien reçu votre réponse : <strong><%= guest.status === 'yes' ? 'présent(e) (' + guest.attending_count + ' pers.)' : 'absent(e)' %></strong>. Vous pouvez la modifier ci-dessous.
+        <% if (guest.status === 'yes') { %><br><a class="link" href="/i/<%= w.slug %>/pass/<%= guest.token %>">🎟️ Voir mon pass d'entrée</a><% } %></p>
+    <% } %>
+    <% if (deadlinePassed && !guest) { %>
+      <p class="alert">La date limite de réponse est passée. Contactez directement les mariés.</p>
+    <% } else { %>
+    <form method="post" action="/i/<%= w.slug %>/rsvp" class="card form">
+      <% if (guest) { %><input type="hidden" name="token" value="<%= guest.token %>"><% } %>
+      <label>Votre nom complet
+        <input name="name" required maxlength="120" value="<%= guest ? guest.name : '' %>" <%= guest && guest.source === 'list' ? 'readonly' : '' %>>
+      </label>
+      <label>Numéro WhatsApp
+        <input name="phone" type="tel" inputmode="tel" placeholder="6XX XX XX XX" value="<%= guest && guest.phone ? prettyPhone(guest.phone) : '' %>">
+      </label>
+      <div class="choice">
+        <label class="radio"><input type="radio" name="attending" value="yes" <%= !guest || guest.status !== 'no' ? 'checked' : '' %>><span>🥂 Je serai présent(e)</span></label>
+        <label class="radio"><input type="radio" name="attending" value="no" <%= guest && guest.status === 'no' ? 'checked' : '' %>><span>😢 Je ne pourrai pas venir</span></label>
+      </div>
+      <label class="count-field">Nombre de personnes (vous inclus)
+        <% const max = guest && guest.source === 'list' ? guest.seats : 6; %>
+        <select name="count"><% for (let n = 1; n <= max; n++) { %><option <%= guest && guest.attending_count === n ? 'selected' : '' %>><%= n %></option><% } %></select>
+      </label>
+      <label>Un mot pour les mariés (livre d'or)
+        <textarea name="message" rows="3" maxlength="500" placeholder="Vos vœux de bonheur…"><%= guest && guest.message ? guest.message : '' %></textarea>
+      </label>
+      <button class="btn btn-gold btn-block" <%= isDraft ? 'disabled' : '' %>>Envoyer ma réponse</button>
+      <% if (w.couple_phone) { %>
+        <a class="btn btn-whatsapp btn-block" target="_blank" rel="noopener" href="<%= waLink(w.couple_phone, 'Bonjour ' + names + ' ! ' + (guest ? 'C\'est ' + guest.name + '. ' : '') + 'Je confirme ma présence à votre mariage 🎉') %>">Répondre directement sur WhatsApp</a>
+      <% } %>
+    </form>
+    <% } %>
+  </section>
+
+  <!-- CAGNOTTE -->
+  <% if (w.cagnotte_enabled && (paymentMode !== 'off' || w.momo_number || w.om_number)) { %>
+  <section class="section cagnotte reveal" id="cagnotte">
+    <h2 class="section-title">La cagnotte des mariés</h2>
+    <div class="ornament">❦</div>
+    <p><%= w.cagnotte_text || 'Votre présence est notre plus beau cadeau. Pour ceux qui le souhaitent, une cagnotte est ouverte pour nous aider à bâtir notre foyer.' %></p>
+    <% if (w.cagnotte_goal > 0) { const pct = Math.min(100, Math.round(s.cagnotte.total * 100 / w.cagnotte_goal)); %>
+      <div class="progress"><div style="width: <%= pct %>%"></div></div>
+      <p class="muted"><strong><%= fmtMoney(s.cagnotte.total) %></strong> collectés sur <%= fmtMoney(w.cagnotte_goal) %> · <%= s.cagnotte.count %> contribution(s)</p>
+    <% } %>
+    <% if (error === 'amount') { %><p class="alert"><i class="fa-solid fa-triangle-exclamation"></i> Montant minimum : 500 FCFA.</p><% } %>
+    <% if (error === 'payment') { %><p class="alert"><i class="fa-solid fa-triangle-exclamation"></i> Le paiement n'a pas pu démarrer. Réessayez ou utilisez le transfert direct ci-dessous.</p><% } %>
+
+    <% if (paymentMode !== 'off') { %>
+    <form method="post" action="/i/<%= w.slug %>/cagnotte" class="card form">
+      <div class="amounts">
+        <% [5000, 10000, 25000, 50000].forEach(function(a) { %><button type="button" class="chip" data-amount="<%= a %>"><%= fmtMoney(a) %></button><% }) %>
+      </div>
+      <label>Montant (FCFA)<input name="amount" id="amount" inputmode="numeric" required placeholder="10 000"></label>
+      <label>Votre nom<input name="name" maxlength="100" value="<%= guest ? guest.name : '' %>" placeholder="Ou laissez vide pour rester anonyme"></label>
+      <label>Numéro MoMo / Orange Money<input name="phone" type="tel" inputmode="tel" placeholder="657664546"></label>
+      <label>Un petit mot (facultatif)<input name="message" maxlength="300"></label>
+      <button class="btn btn-gold btn-block" <%= isDraft ? 'disabled' : '' %>><i class="fa-solid fa-mobile-screen-button"></i> Offrir via MTN MoMo / Orange Money</button>
+      <p class="pay-logos"><span class="momo">MTN MoMo</span><span class="om">Orange Money</span> · <i class="fa-solid fa-lock"></i> paiement sécurisé</p>
+    </form>
+    <% } %>
+
+    <% if (w.momo_number || w.om_number) { %>
+      <div class="manual">
+        <p class="small-caps"><i class="fa-solid fa-arrow-right-arrow-left"></i> Ou par transfert direct</p>
+        <% if (w.momo_number) { %>
+          <div class="pay-line momo-line"><span>MTN MoMo</span><b><%= prettyPhone(w.momo_number) %></b><% if (w.momo_name) { %><small><%= w.momo_name %></small><% } %><button class="copy" data-copy="<%= w.momo_number.slice(3) %>"><i class="fa-regular fa-copy"></i> Copier</button></div>
+        <% } %>
+        <% if (w.om_number) { %>
+          <div class="pay-line om-line"><span>Orange Money</span><b><%= prettyPhone(w.om_number) %></b><% if (w.om_name) { %><small><%= w.om_name %></small><% } %><button class="copy" data-copy="<%= w.om_number.slice(3) %>"><i class="fa-regular fa-copy"></i> Copier</button></div>
+        <% } %>
+      </div>
+    <% } %>
+  </section>
+  <% } %>
+
+  <!-- LIVRE D'OR -->
+  <% if (wishes.length) { %>
+  <section class="section wishes reveal">
+    <h2 class="section-title">Livre d'or</h2>
+    <div class="ornament">❦</div>
+    <div class="wish-list">
+      <% wishes.forEach(function(m) { %><blockquote><p>« <%= m.message %> »</p><cite>— <%= m.name %></cite></blockquote><% }) %>
+    </div>
+  </section>
+  <% } %>
+
+  <footer class="footer">
+    <p class="script big"><%= names %></p>
+    <% if (w.event_date) { %><p><%= fmtDate(w.event_date, { weekday: undefined }) %></p><% } %>
+    <p class="made-by">Faire-part digital par <a href="/?ref=<%= w.slug %>"><%= brand %></a> · Créez le vôtre</p>
+  </footer>
+</main>
+
+  <nav class="bottom-nav">
+    <a href="#programme"><i class="fa-solid fa-scroll"></i><span>Programme</span></a>
+    <% if (venueQuery) { %><a href="#lieu"><i class="fa-solid fa-location-dot"></i><span>Lieu</span></a><% } %>
+    <a href="#rsvp" class="main"><i class="fa-solid fa-envelope-open-text"></i><span>Répondre</span></a>
+    <% if (w.cagnotte_enabled) { %><a href="#cagnotte"><i class="fa-solid fa-gift"></i><span>Cagnotte</span></a><% } %>
+  </nav>
+
+<div class="lightbox" id="lightbox" hidden><img alt=""><button aria-label="Fermer">✕</button></div>
+<script src="/static/js/invite.js" defer></script>
+</body>
+</html>

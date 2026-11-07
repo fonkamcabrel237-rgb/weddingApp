@@ -1,0 +1,12 @@
+<%- include('../partials/head', { title: 'Espace mariés', noindex: true }) %>
+<div class="center-box">
+  <form class="card" method="post" action="/espace/<%= w.slug %>/login">
+    <p class="badge">Espace mariés</p>
+    <h1><%= coupleNames(w) %></h1>
+    <% if (error) { %><p class="error"><%= error %></p><% } %>
+    <input type="hidden" name="next" value="<%= next %>">
+    <label>Code d'accès (reçu sur WhatsApp)<input name="key" required autofocus autocomplete="off"></label>
+    <button class="btn btn-gold" style="width:100%">Accéder</button>
+  </form>
+</div>
+</body></html>

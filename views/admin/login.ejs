@@ -1,0 +1,11 @@
+<%- include('../partials/head', { title: 'Connexion admin', noindex: true }) %>
+<div class="center-box">
+  <form class="card" method="post" action="/admin/login">
+    <h1>Espace pro</h1>
+    <% if (error) { %><p class="error"><%= error %></p><% } %>
+    <input type="hidden" name="next" value="<%= next %>">
+    <label>Mot de passe<input type="password" name="password" autofocus required></label>
+    <button class="btn btn-gold" style="width:100%">Connexion</button>
+  </form>
+</div>
+</body></html>

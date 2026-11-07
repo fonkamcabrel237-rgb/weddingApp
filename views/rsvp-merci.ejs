@@ -1,0 +1,21 @@
+<%- include('partials/simple-head', { title: 'Merci ' + guest.name }) %>
+  <div class="card">
+    <div class="big-emoji"><%= guest.status === 'yes' ? '🥂' : '💐' %></div>
+    <h1 class="script"><%= guest.status === 'yes' ? 'Merci ' + guest.name.split(' ')[0] + ' !' : 'Merci pour votre réponse' %></h1>
+    <% if (guest.status === 'yes') { %>
+      <p>Votre présence est confirmée pour <strong><%= guest.attending_count %> personne(s)</strong>. <%= coupleNames(w) %> ont hâte de vous accueillir !</p>
+      <a class="btn btn-gold btn-block" href="/i/<%= w.slug %>/pass/<%= guest.token %>">🎟️ Mon pass d'entrée</a>
+      <a class="btn btn-outline btn-block" href="/i/<%= w.slug %>/calendar.ics">📅 Ajouter à mon agenda</a>
+    <% } else { %>
+      <p>Nous transmettons votre message à <%= coupleNames(w) %>. Vous pouvez toujours leur faire plaisir via la cagnotte.</p>
+    <% } %>
+    <% if (w.couple_phone) { %>
+      <a class="btn btn-whatsapp btn-block" target="_blank" rel="noopener"
+         href="<%= waLink(w.couple_phone, (guest.status === 'yes' ? '🎉 Bonjour, c\'est ' + guest.name + ' ! Je viens de confirmer ma présence (' + guest.attending_count + ' pers.) à votre mariage. Félicitations !' : 'Bonjour, c\'est ' + guest.name + '. Je ne pourrai malheureusement pas être présent(e), mais je vous souhaite tout le bonheur du monde ! 💐')) %>">
+        Prévenir les mariés sur WhatsApp
+      </a>
+    <% } %>
+    <% if (w.cagnotte_enabled) { %><a class="btn btn-outline btn-block" href="/i/<%= w.slug %>?g=<%= guest.token %>#cagnotte">🎁 Participer à la cagnotte</a><% } %>
+    <p style="margin-top:1rem"><a class="link" href="/i/<%= w.slug %>?g=<%= guest.token %>">← Retour au faire-part</a></p>
+  </div>
+</main></body></html>

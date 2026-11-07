@@ -1,0 +1,159 @@
+<%- include('partials/head', { title: 'Faire-part digitaux pour mariages & dots au Cameroun' }) %>
+<% const waText = 'Bonjour ' + brand + ' ! Je souhaite un faire-part digital pour mon mariage 💍'; %>
+
+<nav class="nav">
+  <div class="container">
+    <a class="logo" href="/"><i class="fa-solid fa-ring"></i> <%= brand.split(' ')[0] %><span>.</span></a>
+    <div class="nav-links">
+      <a href="#fonctionnalites">Fonctionnalités</a>
+      <a href="#tarifs">Tarifs</a>
+      <a href="#partenaires">Partenaires</a>
+      <% if (demo) { %><a href="/i/<%= demo.slug %>" target="_blank"><i class="fa-regular fa-eye"></i> Démo</a><% } %>
+      <a class="btn btn-gold btn-sm" href="#commander"><i class="fa-solid fa-wand-magic-sparkles"></i> Commander</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero-l">
+  <div class="container">
+    <div>
+      <p class="badge"><i class="fa-solid fa-location-dot" style="color:var(--gold)"></i> Douala · Yaoundé · Bafoussam · Kribi · Diaspora</p>
+      <h1 class="hero-title">
+        Votre faire-part de mariage,<br>
+        <em>dans le WhatsApp</em><br>
+        de tous vos invités.
+      </h1>
+      <p class="lead">Une invitation digitale élégante avec compte à rebours, itinéraire GPS jusqu'à la salle, galerie photo, confirmation de présence et <strong>cagnotte MoMo / Orange Money</strong>. Prête en 48h, à partir de 35 000 FCFA.</p>
+      <div class="row" style="margin-top:1.4rem">
+        <a class="btn btn-gold" href="#commander"><i class="fa-solid fa-envelope-open-text"></i> Créer mon faire-part</a>
+        <% if (demo) { %><a class="btn btn-outline" href="/i/<%= demo.slug %>" target="_blank"><i class="fa-regular fa-eye"></i> Voir un exemple</a><% } %>
+      </div>
+      <div class="trust">
+        <span><i class="fa-solid fa-circle-check"></i> Moins cher que 200 cartons</span>
+        <span><i class="fa-solid fa-circle-check"></i> RSVP en temps réel</span>
+        <span><i class="fa-solid fa-circle-check"></i> Zéro carton perdu</span>
+      </div>
+    </div>
+    <div class="phone" aria-hidden="true">
+      <div class="phone-screen">
+        <p style="letter-spacing:.25em;font-size:.65rem;color:#c9a45c;text-transform:uppercase">Nous nous disons oui</p>
+        <div class="script">Grâce<br><span style="font-size:.6em;color:#e8cf8f">&amp;</span><br>Junior</div>
+        <p style="font-family:'Cormorant Garamond';font-size:1.1rem;margin:.6rem 0 0">Samedi 19 décembre</p>
+        <p style="font-size:.75rem;opacity:.8;margin:0"><i class="fa-solid fa-location-dot" style="color:#c9a45c"></i> Hôtel Akwa Palace · Douala</p>
+        <div class="cd"><div><b>42</b>jours</div><div><b>08</b>h</div><div><b>15</b>min</div><div><b>33</b>s</div></div>
+        <span class="pill"><i class="fa-solid fa-heart"></i> Confirmer ma présence</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="s" id="fonctionnalites">
+  <div class="container">
+    <div class="s-title"><h2>Tout ce que le carton papier ne fait pas</h2><p class="muted">Vos invités reçoivent un lien unique sur WhatsApp. Vous suivez tout depuis votre téléphone.</p></div>
+    <div class="grid g3">
+      <div class="feature"><div class="ico"><i class="fa-solid fa-hourglass-half"></i></div><h3>Compte à rebours</h3><p>L'excitation monte jusqu'au jour J, avec musique et animation d'ouverture d'enveloppe.</p></div>
+      <div class="feature"><div class="ico"><i class="fa-solid fa-map-location-dot"></i></div><h3>GPS jusqu'à la salle</h3><p>Google Maps & Waze en un clic. Fini les « on se perd à Bonamoussadi, on vous appelle ».</p></div>
+      <div class="feature"><div class="ico"><i class="fa-solid fa-square-check"></i></div><h3>RSVP en temps réel</h3><p>Vos invités confirment en 10 secondes. Vous savez exactement combien de chaises et de plats prévoir.</p></div>
+      <div class="feature"><div class="ico"><i class="fa-brands fa-whatsapp"></i></div><h3>Envoi WhatsApp personnalisé</h3><p>« Cher Tonton Paul, … » : chaque invité reçoit son lien nominatif avec le nombre de places autorisées.</p></div>
+      <div class="feature"><div class="ico"><i class="fa-solid fa-mobile-screen-button"></i></div><h3>Cagnotte MoMo / OM</h3><p>Les proches au pays comme la diaspora participent en ligne. Suivi des dons en direct.</p></div>
+      <div class="feature"><div class="ico"><i class="fa-solid fa-qrcode"></i></div><h3>Contrôle à l'entrée</h3><p>Chaque invité confirmé reçoit un pass QR. Plus de pique-assiettes à la réception.</p></div>
+      <div class="feature"><div class="ico"><i class="fa-solid fa-images"></i></div><h3>Galerie & histoire</h3><p>Vos plus belles photos de pré-mariage et votre histoire d'amour, mises en valeur.</p></div>
+      <div class="feature"><div class="ico"><i class="fa-solid fa-champagne-glasses"></i></div><h3>Dot + mariage</h3><p>Programme complet : dot, mairie, église, réception — avec lieu et horaire pour chaque étape.</p></div>
+      <div class="feature"><div class="ico"><i class="fa-solid fa-print"></i></div><h3>QR pour les cartons</h3><p>Vous imprimez quand même quelques cartons pour les parents ? On y ajoute un QR code vers l'invitation.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="s alt">
+  <div class="container">
+    <div class="s-title"><h2>Prêt en 48h, sans effort</h2></div>
+    <div class="grid g4 steps">
+      <div class="step"><h3>Commandez</h3><p class="muted">Remplissez le formulaire ci-dessous avec vos infos et photos.</p></div>
+      <div class="step"><h3>Validez</h3><p class="muted">Vous recevez immédiatement un aperçu. On peaufine ensemble sur WhatsApp.</p></div>
+      <div class="step"><h3>Partagez</h3><p class="muted">Ajoutez vos invités et envoyez les liens WhatsApp en un clic.</p></div>
+      <div class="step"><h3>Profitez</h3><p class="muted">Suivez réponses et cagnotte en direct. Le jour J, l'accueil scanne les pass.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="tarifs">
+  <div class="container">
+    <div class="s-title"><h2>Des formules claires</h2><p class="muted">Paiement unique par MoMo ou Orange Money. Aucun abonnement. Le faire-part reste en ligne 6 mois.</p></div>
+    <div class="grid g3">
+      <% Object.entries(PLANS).forEach(function([key, p]) { %>
+        <div class="card plan <%= key === 'prestige' ? 'featured' : '' %>">
+          <% if (key === 'prestige') { %><span class="ribbon"><i class="fa-solid fa-star"></i> LE PLUS CHOISI</span><% } %>
+          <h3><%= p.name %></h3>
+          <div class="price"><%= fmtMoney(p.price) %></div>
+          <ul><% p.features.forEach(function(f) { %><li><i class="fa-solid fa-check"></i> <%= f %></li><% }) %></ul>
+          <a class="btn <%= key === 'prestige' ? 'btn-gold' : 'btn-outline' %>" href="#commander" data-plan="<%= key %>"><i class="fa-solid fa-check"></i> Choisir <%= p.name %></a>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<section class="s alt" id="commander">
+  <div class="container order">
+    <div class="s-title"><h2>Commandez votre faire-part</h2><p class="muted">Vous recevez un aperçu automatiquement après l'envoi. Paiement seulement quand vous êtes satisfaits.</p></div>
+    <form class="card" method="post" action="/commande" enctype="multipart/form-data">
+      <div class="grid g2">
+        <label>Prénom de la mariée *<input name="bride" required maxlength="60"></label>
+        <label>Prénom du marié *<input name="groom" required maxlength="60"></label>
+        <label>WhatsApp *<input name="phone" type="tel" required placeholder="657664546"></label>
+        <label>Email<input name="email" type="email"></label>
+        <label>Type d'événement
+          <select name="event_type"><option value="mariage">Mariage</option><option value="dot">Dot</option><option value="mariage_dot">Dot + mariage</option></select>
+        </label>
+        <label>Date et heure<input name="event_date" type="datetime-local"></label>
+        <label>Ville<input name="city" placeholder="Douala"></label>
+        <label>Nom de la salle<input name="venue_name" placeholder="Salle des fêtes, hôtel…"></label>
+      </div>
+      <label>Adresse / quartier de la salle<input name="venue_address" placeholder="Ex : Bonapriso, rue Njo-Njo"></label>
+      <div class="grid g2">
+        <label>Formule
+          <select name="plan" id="planSelect"><% Object.entries(PLANS).forEach(function([k, p]) { %><option value="<%= k %>" <%= k === 'prestige' ? 'selected' : '' %>><%= p.name %> — <%= fmtMoney(p.price) %></option><% }) %></select>
+        </label>
+        <label>Style
+          <select name="theme"><% Object.entries(THEMES).forEach(function([k, t]) { %><option value="<%= k %>"><%= t %></option><% }) %></select>
+        </label>
+      </div>
+      <label>Vos photos (jusqu'à 30)<input type="file" name="photos" accept="image/*" multiple></label>
+      <label>Wedding planner / photographe qui vous a recommandés<input name="partner" value="<%= ref %>" placeholder="Facultatif"></label>
+      <label>Précisions (programme, couleurs, dress code…)<textarea name="notes" rows="3"></textarea></label>
+      <button class="btn btn-gold" style="width:100%"><i class="fa-solid fa-sparkles"></i> Recevoir mon aperçu gratuit</button>
+      <p class="muted small" style="text-align:center;margin:.8rem 0 0">Une question ? <a href="<%= waLink(businessWhatsapp, waText) %>" target="_blank"><i class="fa-brands fa-whatsapp"></i> Écrivez-nous sur WhatsApp</a></p>
+    </form>
+  </div>
+</section>
+
+<section class="s" id="partenaires">
+  <div class="container">
+    <div class="grid g2" style="align-items:center">
+      <div>
+        <h2 style="font-size:2.4rem">Wedding planners, photographes, salles : devenez partenaires</h2>
+        <p class="muted">Offrez un faire-part digital à vos couples (ou revendez-le) et touchez <strong>10 000 FCFA par couple</strong> recommandé. Votre logo peut apparaître sur les faire-part.</p>
+        <a class="btn btn-wa" target="_blank" href="<%= waLink(businessWhatsapp, 'Bonjour, je suis wedding planner / photographe et je souhaite devenir partenaire ' + brand + '.') %>"><i class="fa-brands fa-whatsapp"></i> Devenir partenaire</a>
+      </div>
+      <div class="card">
+        <h3><i class="fa-solid fa-circle-question" style="color:var(--gold)"></i> FAQ</h3>
+        <details><summary>Mes invités âgés n'ont pas de smartphone ?</summary><p class="muted">Imprimez quelques cartons avec le QR code de votre invitation, ou laissez vos enfants répondre pour eux. Vous pouvez aussi ajouter leurs réponses manuellement.</p></details>
+        <details><summary>Comment fonctionne la cagnotte ?</summary><p class="muted">Les invités paient par MTN MoMo ou Orange Money depuis la page. Vous suivez chaque don en direct et l'argent vous est reversé après l'événement. Vous pouvez aussi afficher simplement vos numéros MoMo/OM.</p></details>
+        <details><summary>Combien de temps reste-t-il en ligne ?</summary><p class="muted">6 mois après l'événement, de quoi partager les photos et remercier vos invités.</p></details>
+        <details><summary>Je peux modifier après publication ?</summary><p class="muted">Oui, envoyez-nous vos changements sur WhatsApp : c'est inclus.</p></details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site">© <%= new Date().getFullYear() %> <%= brand %> · Faire-part digitaux au Cameroun · <a href="/admin"><i class="fa-solid fa-lock"></i> Espace pro</a></footer>
+
+<a class="wa-float" href="<%= waLink(businessWhatsapp, waText) %>" target="_blank" aria-label="WhatsApp">
+  <i class="fa-brands fa-whatsapp"></i>
+</a>
+<script>
+  document.querySelectorAll('[data-plan]').forEach(function (a) {
+    a.addEventListener('click', function () { document.getElementById('planSelect').value = a.dataset.plan; });
+  });
+</script>
+</body></html>

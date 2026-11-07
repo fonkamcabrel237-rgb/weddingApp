@@ -1,0 +1,23 @@
+<%- include('partials/head', { title: 'Commande reçue', noindex: true }) %>
+<div class="center-box">
+  <div class="card" style="max-width:520px;text-align:center">
+    <div style="font-size:3rem">💌</div>
+    <h1 style="font-size:2.2rem">Merci <%= w.bride %> &amp; <%= w.groom %> !</h1>
+    <p>Votre brouillon de faire-part a été <strong>généré automatiquement</strong>. Nous le finalisons avec vous sous 48h.</p>
+    <div class="row" style="justify-content:center;margin:1.2rem 0">
+      <a class="btn btn-gold" href="/i/<%= w.slug %>?k=<%= w.access_key %>" target="_blank">👀 Voir mon aperçu</a>
+      <a class="btn btn-outline" href="/espace/<%= w.slug %>?k=<%= w.access_key %>">Mon espace mariés</a>
+    </div>
+    <div class="card" style="background:#faf7f2;text-align:left">
+      <p style="margin-top:0"><strong>Pour publier votre faire-part</strong> (formule <%= plan.name %> — <%= fmtMoney(w.price) %>) :</p>
+      <ol class="muted" style="padding-left:1.2rem;margin-bottom:0">
+        <li>Validez l'aperçu avec nous sur WhatsApp</li>
+        <li>Réglez par MTN MoMo ou Orange Money</li>
+        <li>Votre faire-part est publié et vous pouvez inviter vos proches</li>
+      </ol>
+    </div>
+    <p class="muted small">⚠️ Gardez précieusement ce lien d'accès à votre espace :<br><code><%= baseUrl %>/espace/<%= w.slug %>?k=<%= w.access_key %></code></p>
+    <a class="btn btn-wa" target="_blank" href="<%= waLink(businessWhatsapp, 'Bonjour ' + brand + ' ! Nous venons de commander le faire-part ' + plan.name + ' de ' + coupleNames(w) + '. Aperçu : ' + baseUrl + '/i/' + w.slug + ' — Comment procéder au paiement ?') %>">Finaliser sur WhatsApp</a>
+  </div>
+</div>
+</body></html>

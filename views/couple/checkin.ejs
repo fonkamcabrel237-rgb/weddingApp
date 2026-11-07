@@ -1,0 +1,38 @@
+<%- include('../partials/head', { title: 'Contrôle entrée', noindex: true }) %>
+<div class="center-box">
+  <% if (!guest) { %>
+    <div class="card checkin-bad" style="text-align:center">
+      <div style="font-size:3rem">⛔</div>
+      <h1>Pass invalide</h1>
+      <p>Ce QR code ne correspond à aucun invité de <%= coupleNames(w) %>.</p>
+      <a class="btn btn-outline" href="/espace/<%= w.slug %>/accueil">Liste des invités</a>
+    </div>
+  <% } else if (guest.status !== 'yes') { %>
+    <div class="card checkin-bad" style="text-align:center">
+      <div style="font-size:3rem">⚠️</div>
+      <h1><%= guest.name %></h1>
+      <p>Cet invité n'a <strong>pas confirmé</strong> sa présence (<%= guest.status === 'no' ? 'a répondu absent' : 'sans réponse' %>).</p>
+      <a class="btn btn-outline" href="/espace/<%= w.slug %>/accueil">Liste des invités</a>
+    </div>
+  <% } else if (guest.checked_in_at && !done) { %>
+    <div class="card checkin-warn" style="text-align:center">
+      <div style="font-size:3rem">🔁</div>
+      <h1><%= guest.name %></h1>
+      <p><strong>Déjà entré</strong> (<%= guest.checked_in_at.slice(11, 16) %> UTC). Pass valable pour <%= guest.attending_count %> personne(s).</p>
+      <a class="btn btn-outline" href="/espace/<%= w.slug %>/accueil">Liste des invités</a>
+    </div>
+  <% } else { %>
+    <div class="card <%= done ? 'checkin-ok' : '' %>" style="text-align:center">
+      <div style="font-size:3rem"><%= done ? '✅' : '🎟️' %></div>
+      <h1><%= guest.name %></h1>
+      <p style="font-size:1.2rem"><strong><%= guest.attending_count %> personne(s)</strong></p>
+      <% if (done) { %>
+        <p>Entrée validée. Bonne fête !</p>
+        <a class="btn btn-outline" href="/espace/<%= w.slug %>/accueil">Liste des invités</a>
+      <% } else { %>
+        <form method="post"><button class="btn btn-gold" style="width:100%;padding:1rem">Valider l'entrée</button></form>
+      <% } %>
+    </div>
+  <% } %>
+</div>
+</body></html>

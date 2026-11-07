@@ -1,0 +1,12 @@
+<%- include('partials/simple-head', { title: 'Pass — ' + guest.name }) %>
+  <div class="card">
+    <p class="small-caps">Pass d'entrée</p>
+    <h1 class="script"><%= coupleNames(w) %></h1>
+    <p><%= fmtDate(w.event_date) %><br><span class="muted"><%= [w.venue_name, w.city].filter(Boolean).join(' · ') %></span></p>
+    <img class="pass-qr" src="<%= qr %>" alt="QR code d'entrée">
+    <p style="font: 600 1.4rem 'Cormorant Garamond', serif; margin:.2rem 0"><%= guest.name %></p>
+    <p class="muted"><%= guest.attending_count %> personne(s) · Code <strong><%= guest.token.toUpperCase() %></strong></p>
+    <p class="muted" style="font-size:.85rem">Faites une capture d'écran et présentez ce QR code à l'accueil.</p>
+    <a class="link" href="/i/<%= w.slug %>?g=<%= guest.token %>">← Retour au faire-part</a>
+  </div>
+</main></body></html>

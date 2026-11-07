@@ -1,0 +1,165 @@
+<%- include('../partials/head', { title: 'Espace ' + coupleNames(w), noindex: true }) %>
+<%
+  const mode = ['invite', 'pending', 'j7', 'j1'].includes(query.m) ? query.m : 'invite';
+  const msgFor = (g) => mode === 'invite' ? inviteMessage(w, g) : reminderMessage(w, g, mode);
+  const waFor = (g) => g.phone ? waLink(g.phone, msgFor(g)) : 'https://wa.me/?text=' + encodeURIComponent(msgFor(g));
+  const statusLabel = { yes: 'Présent', no: 'Absent', pending: 'En attente' };
+  const qs = (o) => '?' + new URLSearchParams(Object.assign({ f: filter || '', m: mode }, o)).toString();
+%>
+<div class="topbar">
+  <div class="container">
+    <span class="logo"><i class="fa-solid fa-heart" style="color:var(--gold2)"></i> <%= coupleNames(w) %></span>
+    <div class="row" style="gap:1rem"><a href="/i/<%= w.slug %>" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Mon faire-part</a></div>
+  </div>
+</div>
+
+<div class="container page">
+  <% if (flash) { %><div class="flash"><i class="fa-solid fa-circle-check"></i> <%= flash %></div><% } %>
+  <% if (w.status !== 'published') { %>
+    <div class="error" style="margin-bottom:1rem"><i class="fa-solid fa-eye"></i> Votre faire-part est en <strong>aperçu</strong>. Il sera visible par vos invités dès sa publication (après validation et paiement).
+      <a href="<%= waLink(businessWhatsapp, 'Bonjour, nous souhaitons publier le faire-part de ' + coupleNames(w) + ' (' + baseUrl + '/i/' + w.slug + ')') %>" target="_blank">Publier maintenant →</a></div>
+  <% } %>
+
+  <div class="row between">
+    <div>
+      <h1 style="font-size:2.3rem;margin:0">Bonjour <%= w.bride %> &amp; <%= w.groom %> 👋</h1>
+      <% if (daysLeft !== null) { %><p class="muted" style="margin:0"><%= daysLeft > 0 ? 'J-' + daysLeft + ' avant le grand jour' : (daysLeft === 0 ? "C'est aujourd'hui ! 🎉" : 'Événement passé') %> · <%= fmtDate(w.event_date) %></p><% } %>
+    </div>
+    <div class="row">
+      <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>/export.csv"><i class="fa-solid fa-file-excel"></i> Export Excel</a>
+      <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-qrcode"></i> Accueil jour J</a>
+    </div>
+  </div>
+
+  <div class="grid g4" style="margin-top:1.2rem">
+    <div class="card kpi"><b><%= s.guests.people %></b><span><i class="fa-solid fa-user-check" style="color:var(--green)"></i> personnes confirmées (<%= s.guests.yes %> réponses)</span></div>
+    <div class="card kpi"><b><%= s.guests.pending %></b><span><i class="fa-regular fa-clock" style="color:#8a6a00"></i> sans réponse</span></div>
+    <div class="card kpi"><b><%= s.guests.no %></b><span><i class="fa-solid fa-user-xmark" style="color:var(--red)"></i> absents</span></div>
+    <div class="card kpi"><b><%= s.guests.total %></b><span><i class="fa-solid fa-users"></i> invités (<%= s.guests.seats %> places)</span></div>
+    <div class="card kpi"><b><%= fmtMoney(s.cagnotte.total) %></b><span><i class="fa-solid fa-gift" style="color:var(--gold)"></i> cagnotte · <%= s.cagnotte.count %> don(s)</span></div>
+    <div class="card kpi"><b><%= w.views %></b><span><i class="fa-regular fa-eye"></i> ouvertures du faire-part</span></div>
+  </div>
+
+  <div class="section-h"><h2><i class="fa-solid fa-bullhorn" style="color:var(--gold)"></i> Partager</h2></div>
+  <div class="grid g2">
+    <div class="card">
+      <p class="small muted" style="margin-top:0">Lien général (groupes WhatsApp, statut, Facebook)</p>
+      <div class="copybox"><input readonly value="<%= inviteUrl(w) %>" onclick="this.select()"><button class="btn btn-sm btn-outline" data-copy="<%= inviteUrl(w) %>"><i class="fa-regular fa-copy"></i> Copier</button></div>
+      <div class="row" style="margin-top:.8rem">
+        <a class="btn btn-wa btn-sm" target="_blank" href="https://wa.me/?text=<%= encodeURIComponent(inviteMessage(w, null)) %>"><i class="fa-brands fa-whatsapp"></i> Partager sur WhatsApp</a>
+        <a class="btn btn-outline btn-sm" href="/i/<%= w.slug %>/qr.png?size=1000" download="qr-<%= w.slug %>.png"><i class="fa-solid fa-qrcode"></i> QR code pour cartons</a>
+      </div>
+    </div>
+    <div class="card">
+      <p style="margin-top:0"><strong><i class="fa-regular fa-lightbulb" style="color:var(--gold)"></i> Astuce :</strong> ajoutez vos invités ci-dessous pour leur envoyer un lien <em>personnalisé</em> (« Cher Tonton Paul… ») avec le nombre de places autorisées. Vous saurez qui a répondu, et qui relancer.</p>
+    </div>
+  </div>
+
+  <div class="section-h" id="invites"><h2><i class="fa-solid fa-users" style="color:var(--gold)"></i> Mes invités</h2></div>
+  <div class="grid g2">
+    <form class="card" method="post" action="/espace/<%= w.slug %>/invites">
+      <h3><i class="fa-solid fa-user-plus" style="font-size:1.1rem;color:var(--gold)"></i> Ajouter un invité</h3>
+      <div class="grid" style="grid-template-columns: 2fr 1.5fr .8fr">
+        <label>Nom<input name="name" required placeholder="Tonton Paul"></label>
+        <label>WhatsApp<input name="phone" type="tel" placeholder="657664546"></label>
+        <label>Places<input name="seats" type="number" min="1" max="20" value="1"></label>
+      </div>
+      <button class="btn btn-sm"><i class="fa-solid fa-plus"></i> Ajouter</button>
+    </form>
+    <form class="card" method="post" action="/espace/<%= w.slug %>/invites">
+      <h3><i class="fa-solid fa-file-import" style="font-size:1.1rem;color:var(--gold)"></i> Import rapide</h3>
+      <label>Une ligne par invité : <code>Nom, téléphone, places</code> (copier-coller depuis Excel accepté)
+        <textarea name="bulk" rows="3" placeholder="Famille Ngo Bassa, 690112233, 4&#10;Maman Rose, 677889900, 2"></textarea></label>
+      <button class="btn btn-sm"><i class="fa-solid fa-upload"></i> Importer</button>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:1.2rem">
+    <div class="row between" style="margin-bottom:.8rem">
+      <div class="tabs">
+        <a class="<%= !filter ? 'active' : '' %>" href="<%= qs({ f: '' }) %>#invites">Tous (<%= s.guests.total %>)</a>
+        <a class="<%= filter === 'yes' ? 'active' : '' %>" href="<%= qs({ f: 'yes' }) %>#invites">Présents (<%= s.guests.yes %>)</a>
+        <a class="<%= filter === 'pending' ? 'active' : '' %>" href="<%= qs({ f: 'pending' }) %>#invites">En attente (<%= s.guests.pending %>)</a>
+        <a class="<%= filter === 'no' ? 'active' : '' %>" href="<%= qs({ f: 'no' }) %>#invites">Absents (<%= s.guests.no %>)</a>
+      </div>
+      <label style="margin:0;min-width:240px">Message WhatsApp
+        <select onchange="location.href=this.value">
+          <% [['invite', '💌 Invitation'], ['pending', '🔔 Relance sans réponse'], ['j7', '📅 Rappel J-7'], ['j1', '✨ Rappel J-1']].forEach(function([k, l]) { %>
+            <option value="<%= qs({ m: k }) %>#invites" <%= mode === k ? 'selected' : '' %>><%= l %></option>
+          <% }) %>
+        </select>
+      </label>
+    </div>
+    <% if (guests.length) { %>
+      <div class="row" style="margin-bottom:.8rem">
+        <button class="btn btn-wa btn-sm" id="sendNext"><i class="fa-solid fa-play"></i> Envoyer au suivant</button>
+        <span class="muted small" id="sendInfo">Ouvre WhatsApp pour chaque invité, l'un après l'autre. Appuyez sur « Envoyer » dans WhatsApp, puis revenez ici.</span>
+      </div>
+    <% } %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Invité</th><th>Places</th><th>Réponse</th><th>Message</th><th></th></tr>
+        </thead>
+        <tbody>
+        <% if (!guests.length) { %><tr><td colspan="5" class="muted">Aucun invité dans cette liste.</td></tr><% } %>
+        <% guests.forEach(function(g) { %>
+          <tr class="<%= g.invited_at && mode === 'invite' ? 'sent' : '' %>">
+            <td><strong><%= g.name %></strong><br><span class="small muted"><%= g.phone ? prettyPhone(g.phone) : 'pas de numéro' %><%= g.source === 'public' ? ' · via lien général' : '' %></span></td>
+            <td><%= g.status === 'yes' ? g.attending_count + ' / ' : '' %><%= g.seats %></td>
+            <td><span class="badge b-<%= g.status %>"><%= statusLabel[g.status] %></span><% if (g.checked_in_at) { %> <span class="badge b-yes"><i class="fa-solid fa-check"></i> arrivé</span><% } %></td>
+            <td class="small" style="max-width:240px"><%= g.message || '' %></td>
+            <td class="row" style="flex-wrap:nowrap">
+              <a class="btn btn-wa btn-sm wa-send" data-id="<%= g.id %>" target="_blank" href="<%= waFor(g) %>"><i class="fa-brands fa-whatsapp"></i> <%= g.invited_at && mode === 'invite' ? 'Renvoyer' : 'WhatsApp' %></a>
+              <% if (g.status === 'yes') { %><a class="btn btn-outline btn-sm" target="_blank" href="/i/<%= w.slug %>/pass/<%= g.token %>" title="Pass d'entrée"><i class="fa-solid fa-qrcode"></i></a><% } %>
+              <form class="inline" method="post" action="/espace/<%= w.slug %>/invites/<%= g.id %>/delete" onsubmit="return confirm('Supprimer <%= g.name.replace(/'/g, '') %> ?')"><button class="btn btn-ghost btn-sm" title="Supprimer"><i class="fa-regular fa-trash-can"></i></button></form>
+            </td>
+          </tr>
+        <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <% if (w.cagnotte_enabled) { %>
+  <div class="section-h" id="cagnotte"><h2><i class="fa-solid fa-gift" style="color:var(--gold)"></i> Cagnotte</h2></div>
+  <div class="card">
+    <% if (w.cagnotte_goal) { %><div class="progress"><div style="width:<%= Math.min(100, Math.round(s.cagnotte.total * 100 / w.cagnotte_goal)) %>%"></div></div><p class="small muted"><%= fmtMoney(s.cagnotte.total) %> sur <%= fmtMoney(w.cagnotte_goal) %></p><% } %>
+    <% if (!contributions.length) { %><p class="muted">Aucune contribution en ligne pour le moment.</p><% } else { %>
+    <div class="table-wrap"><table>
+      <thead>
+        <tr><th>Date</th><th>De</th><th>Montant</th><th>Mot</th></tr>
+      </thead>
+      <tbody>
+      <% contributions.forEach(function(c) { %><tr><td class="small"><%= (c.paid_at || c.created_at).slice(0, 16) %></td><td><%= c.name %></td><td><strong><%= fmtMoney(c.amount) %></strong></td><td class="small"><%= c.message || '' %></td></tr><% }) %>
+      </tbody>
+    </table></div>
+    <p class="small muted">Montant net reversé après l'événement : <strong><%= fmtMoney(s.cagnotte.net) %></strong><%= s.cagnotte.fee ? ' (frais de service ' + fmtMoney(s.cagnotte.fee) + ')' : '' %>.</p>
+    <% } %>
+  </div>
+  <% } %>
+
+  <p class="muted small" style="text-align:center;margin-top:2rem">Besoin d'une modification ? <a target="_blank" href="<%= waLink(businessWhatsapp, 'Bonjour, modification pour le faire-part de ' + coupleNames(w) + ' : ') %>"><i class="fa-brands fa-whatsapp"></i> Écrivez-nous sur WhatsApp</a></p>
+</div>
+
+<script>
+  var slug = <%- JSON.stringify(w.slug) %>;
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.wa-send'));
+  function markSent(b) {
+    b.closest('tr').classList.add('sent'); b.dataset.done = '1';
+    fetch('/espace/' + slug + '/invites/' + b.dataset.id + '/sent', { method: 'POST' });
+  }
+  btns.forEach(function (b) { b.addEventListener('click', function () { markSent(b); }); });
+  var next = document.getElementById('sendNext');
+  if (next) next.addEventListener('click', function () {
+    var b = btns.find(function (x) { return !x.dataset.done; });
+    if (!b) { document.getElementById('sendInfo').textContent = '✅ Tous les messages de cette liste ont été ouverts.'; return; }
+    markSent(b); window.open(b.href, '_blank');
+    var left = btns.filter(function (x) { return !x.dataset.done; }).length;
+    document.getElementById('sendInfo').textContent = 'Envoyé à ' + b.closest('tr').querySelector('strong').textContent + ' · reste ' + left;
+  });
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () { navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copié ✓'; });
+  });
+</script>
+</body></html>

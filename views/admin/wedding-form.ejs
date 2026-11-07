@@ -1,0 +1,145 @@
+<%- include('../partials/head', { title: w ? coupleNames(w) : 'Nouveau faire-part', noindex: true }) %>
+<%- include('../partials/admin-nav') %>
+<% const v = (k, d) => (w && w[k] != null ? w[k] : (d || '')); %>
+<div class="container page">
+  <% if (flash) { %><div class="flash"><%= flash %></div><% } %>
+
+  <% if (w) { %>
+  <div class="section-h" style="margin-top:0">
+    <div>
+      <h1 style="font-size:2.2rem;margin:0"><%= coupleNames(w) %></h1>
+      <span class="badge b-<%= w.status %>"><%= { draft: 'Brouillon', published: 'En ligne', archived: 'Archivé' }[w.status] %></span>
+      <span class="badge <%= w.paid ? 'b-paid' : 'b-pending' %>"><%= w.paid ? 'Payé' : 'Non payé' %></span>
+      <span class="muted small">· <%= w.views %> vues · ✅ <%= s.guests.yes %> présents (<%= s.guests.people %> pers.) · 🎁 <%= fmtMoney(s.cagnotte.total) %></span>
+    </div>
+    <div class="row">
+      <a class="btn btn-outline btn-sm" target="_blank" href="/i/<%= w.slug %>">👀 Voir</a>
+      <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>">Espace mariés</a>
+      <form class="inline" method="post" action="/admin/mariages/<%= w.id %>/action">
+        <button class="btn btn-sm <%= w.paid ? 'btn-outline' : 'btn-gold' %>" name="action" value="paid"><%= w.paid ? 'Marquer non payé' : '💰 Marquer payé' %></button>
+        <% if (w.status !== 'published') { %><button class="btn btn-sm" name="action" value="publish">🚀 Publier</button><% } else { %><button class="btn btn-outline btn-sm" name="action" value="draft">Dépublier</button><% } %>
+      </form>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:1.2rem">
+    <div class="card">
+      <p class="small muted" style="margin-top:0">Lien public du faire-part</p>
+      <div class="copybox"><input readonly value="<%= inviteUrl(w) %>" onclick="this.select()"><a class="btn btn-sm btn-outline" href="/i/<%= w.slug %>/qr.png?size=1000" download>QR</a></div>
+      <p class="small muted">Lien d'accès des mariés (à envoyer au couple)</p>
+      <div class="copybox"><input readonly value="<%= baseUrl %>/espace/<%= w.slug %>?k=<%= w.access_key %>" onclick="this.select()">
+        <% if (w.couple_phone) { %><a class="btn btn-sm btn-wa" target="_blank" href="<%= waLink(w.couple_phone, 'Félicitations ' + coupleNames(w) + ' 🎉 Votre faire-part est en ligne : ' + inviteUrl(w) + '\n\nVotre espace mariés (ajout des invités, envoi WhatsApp, suivi des réponses et de la cagnotte) : ' + baseUrl + '/espace/' + w.slug + '?k=' + w.access_key + '\n\nGardez ce lien secret 🔒') %>">Envoyer</a><% } %>
+      </div>
+    </div>
+    <div class="card">
+      <% if (lead) { %><p class="small" style="margin-top:0"><strong>Commande d'origine :</strong> <%= lead.notes || 'pas de précision' %></p><% } %>
+      <p class="small muted" style="margin-top:0">Cagnotte : <strong><%= fmtMoney(s.cagnotte.total) %></strong> collectés · frais <%= fmtMoney(s.cagnotte.fee) %> · à reverser <strong><%= fmtMoney(s.cagnotte.net) %></strong></p>
+      <form class="row" method="post" action="/admin/mariages/<%= w.id %>/action">
+        <button class="btn btn-outline btn-sm" name="action" value="payout"><%= w.payout_done ? '↩️ Cagnotte non reversée' : '✅ Cagnotte reversée' %></button>
+        <button class="btn btn-outline btn-sm" name="action" value="newkey" onclick="return confirm('L\'ancien lien des mariés ne fonctionnera plus. Continuer ?')">🔑 Nouveau code mariés</button>
+        <button class="btn btn-outline btn-sm" name="action" value="archive">Archiver</button>
+        <button class="btn btn-danger btn-sm" name="action" value="delete" onclick="return confirm('Supprimer définitivement ce faire-part et toutes ses données ?')">Supprimer</button>
+      </form>
+    </div>
+  </div>
+  <% } else { %>
+    <h1>Nouveau faire-part</h1>
+  <% } %>
+
+  <form method="post" action="<%= w ? '/admin/mariages/' + w.id : '/admin/mariages' %>">
+    <fieldset><legend>Les mariés</legend>
+      <div class="grid g3">
+        <label>Prénom de la mariée *<input name="bride" required value="<%= v('bride') %>"></label>
+        <label>Prénom du marié *<input name="groom" required value="<%= v('groom') %>"></label>
+        <label>Adresse du lien (/i/…)<input name="slug" value="<%= v('slug') %>" placeholder="grace-et-junior"></label>
+        <label>WhatsApp des mariés<input name="couple_phone" value="<%= w && w.couple_phone ? prettyPhone(w.couple_phone) : '' %>"></label>
+        <label>Email<input name="couple_email" type="email" value="<%= v('couple_email') %>"></label>
+        <label>Type
+          <select name="event_type"><% [['mariage', 'Mariage'], ['dot', 'Dot'], ['mariage_dot', 'Dot + mariage']].forEach(function([k, l]) { %><option value="<%= k %>" <%= v('event_type', 'mariage') === k ? 'selected' : '' %>><%= l %></option><% }) %></select>
+        </label>
+      </div>
+      <label>Accroche<input name="headline" value="<%= v('headline', 'Nous nous disons OUI !') %>"></label>
+      <label>Notre histoire (un paragraphe par ligne)<textarea name="story" rows="4"><%= v('story') %></textarea></label>
+      <div class="grid g3">
+        <label>Hashtag<input name="hashtag" value="<%= v('hashtag') %>" placeholder="GraceJunior2026"></label>
+        <label>Thème
+          <select name="theme"><% Object.entries(THEMES).forEach(function([k, t]) { %><option value="<%= k %>" <%= v('theme', 'royal') === k ? 'selected' : '' %>><%= t %></option><% }) %></select>
+        </label>
+        <label>Musique (URL .mp3)<input name="music_url" value="<%= v('music_url') %>" placeholder="https://…/chanson.mp3"></label>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>Date & lieu principal</legend>
+      <div class="grid g3">
+        <label>Date et heure (heure du Cameroun)<input type="datetime-local" name="event_date" value="<%= v('event_date') %>"></label>
+        <label>Réponse souhaitée avant le<input type="date" name="rsvp_deadline" value="<%= v('rsvp_deadline') %>"></label>
+        <label>Dress code<input name="dress_code" value="<%= v('dress_code') %>" placeholder="Tenue traditionnelle / Blanc & or"></label>
+        <label>Nom de la salle<input name="venue_name" value="<%= v('venue_name') %>"></label>
+        <label>Adresse / quartier<input name="venue_address" value="<%= v('venue_address') %>"></label>
+        <label>Ville<input name="city" value="<%= v('city') %>"></label>
+      </div>
+      <label>Recherche Google Maps (coordonnées GPS « 4.0511,9.7679 » ou nom exact du lieu)<input name="maps_query" value="<%= v('maps_query') %>" placeholder="Laissez vide pour utiliser salle + adresse + ville"></label>
+    </fieldset>
+
+    <fieldset><legend>Programme (dot, mairie, église, réception…)</legend>
+      <div class="prog-row small muted"><span>Étape</span><span>Date & heure</span><span>Lieu</span><span>Adresse</span></div>
+      <% for (let i = 0; i < 6; i++) { const p = program[i] || {}; %>
+        <div class="prog-row">
+          <input name="program[<%= i %>][title]" value="<%= p.title || '' %>" placeholder="<%= ['Dot', 'Mariage civil', 'Bénédiction nuptiale', 'Réception', '', ''][i] %>">
+          <input type="datetime-local" name="program[<%= i %>][date]" value="<%= p.date || '' %>">
+          <input name="program[<%= i %>][place]" value="<%= p.place || '' %>" placeholder="Lieu">
+          <input name="program[<%= i %>][address]" value="<%= p.address || '' %>" placeholder="Adresse, ville">
+        </div>
+      <% } %>
+    </fieldset>
+
+    <fieldset><legend>Cagnotte</legend>
+      <label><input type="checkbox" name="cagnotte_enabled" value="1" <%= !w || w.cagnotte_enabled ? 'checked' : '' %>> Afficher la cagnotte</label>
+      <div class="grid g3">
+        <label>Objectif (FCFA, facultatif)<input name="cagnotte_goal" inputmode="numeric" value="<%= v('cagnotte_goal') || '' %>"></label>
+        <label>N° MTN MoMo des mariés<input name="momo_number" value="<%= w && w.momo_number ? prettyPhone(w.momo_number) : '' %>"></label>
+        <label>Nom du compte MoMo<input name="momo_name" value="<%= v('momo_name') %>"></label>
+        <label>N° Orange Money<input name="om_number" value="<%= w && w.om_number ? prettyPhone(w.om_number) : '' %>"></label>
+        <label>Nom du compte OM<input name="om_name" value="<%= v('om_name') %>"></label>
+      </div>
+      <label>Texte de la cagnotte<textarea name="cagnotte_text" rows="2"><%= v('cagnotte_text') %></textarea></label>
+    </fieldset>
+
+    <fieldset><legend>Commercial</legend>
+      <div class="grid g4">
+        <label>Formule
+          <select name="plan"><% Object.entries(PLANS).forEach(function([k, p]) { %><option value="<%= k %>" <%= v('plan', 'prestige') === k ? 'selected' : '' %>><%= p.name %></option><% }) %></select>
+        </label>
+        <label>Prix facturé (FCFA)<input name="price" inputmode="numeric" value="<%= v('price', 50000) %>"></label>
+        <label>Partenaire apporteur<input name="partner" value="<%= v('partner') %>"></label>
+        <label>Commission partenaire (FCFA)<input name="partner_commission" inputmode="numeric" value="<%= v('partner_commission', 0) %>"></label>
+      </div>
+    </fieldset>
+
+    <div class="sticky-save">
+      <a class="btn btn-ghost" href="/admin">Annuler</a>
+      <button class="btn btn-gold">💾 Enregistrer</button>
+    </div>
+  </form>
+
+  <% if (w) { %>
+  <fieldset id="photos"><legend>Photos (<%= photos.length %>)</legend>
+    <form method="post" action="/admin/mariages/<%= w.id %>/photos" enctype="multipart/form-data" class="row" style="margin-bottom:1rem">
+      <input type="file" name="photos" accept="image/*" multiple required style="flex:1;margin:0">
+      <button class="btn btn-sm">Téléverser</button>
+    </form>
+    <div class="photos">
+      <% photos.forEach(function(p) { %>
+        <div class="photo <%= w.cover_photo === p.filename ? 'cover' : '' %>">
+          <img src="/uploads/<%= p.filename %>" loading="lazy" alt="">
+          <form class="acts" method="post" action="/admin/mariages/<%= w.id %>/photos/<%= p.id %>">
+            <button name="action" value="cover"><%= w.cover_photo === p.filename ? '★ Couverture' : 'Couverture' %></button>
+            <button name="action" value="delete" onclick="return confirm('Supprimer ?')">🗑</button>
+          </form>
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+  <% } %>
+</div>
+</body></html>
