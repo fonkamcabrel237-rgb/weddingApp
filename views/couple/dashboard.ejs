@@ -1,165 +1,225 @@
-<%- include('../partials/head', { title: 'Espace ' + coupleNames(w), noindex: true }) %>
+<%- include('../partials/head', { title: 'Espace ' + coupleNames(w), noindex: true, bodyClass: 'couple', extraCss: 'couple.css' }) %>
 <%
   const mode = ['invite', 'pending', 'j7', 'j1'].includes(query.m) ? query.m : 'invite';
   const msgFor = (g) => mode === 'invite' ? inviteMessage(w, g) : reminderMessage(w, g, mode);
   const waFor = (g) => g.phone ? waLink(g.phone, msgFor(g)) : 'https://wa.me/?text=' + encodeURIComponent(msgFor(g));
   const statusLabel = { yes: 'Présent', no: 'Absent', pending: 'En attente' };
   const qs = (o) => '?' + new URLSearchParams(Object.assign({ f: filter || '', m: mode }, o)).toString();
+  const initials = (n) => String(n).trim().split(/\s+/).slice(0, 2).map((x) => x.charAt(0)).join('').toUpperCase();
+  const countdown = daysLeft === null ? '' : (daysLeft > 0 ? 'J-' + daysLeft : (daysLeft === 0 ? "C'est aujourd'hui !" : 'Événement passé'));
 %>
-<div class="topbar">
-  <div class="container">
-    <span class="logo"><i class="fa-solid fa-heart" style="color:var(--gold2)"></i> <%= coupleNames(w) %></span>
-    <div class="row" style="gap:1rem"><a href="/i/<%= w.slug %>" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Mon faire-part</a></div>
-  </div>
-</div>
 
-<div class="container page">
-  <% if (flash) { %><div class="flash"><i class="fa-solid fa-circle-check"></i> <%= flash %></div><% } %>
+<header class="cp-header">
+  <div class="cp-wrap">
+    <h1 class="cp-names"><%= coupleNames(w) %><small><%= countdown %><%= w.event_date ? ' · ' + fmtDate(w.event_date, { weekday: undefined }) : '' %></small></h1>
+    <a class="cp-icon-btn" href="/i/<%= w.slug %>" target="_blank" aria-label="Voir mon faire-part"><i class="fa-regular fa-eye"></i></a>
+  </div>
+</header>
+
+<main class="cp-wrap">
+  <% if (flash) { %><div class="cp-banner ok"><i class="fa-solid fa-circle-check"></i><div><%= flash %></div></div><% } %>
   <% if (w.status !== 'published') { %>
-    <div class="error" style="margin-bottom:1rem"><i class="fa-solid fa-eye"></i> Votre faire-part est en <strong>aperçu</strong>. Il sera visible par vos invités dès sa publication (après validation et paiement).
-      <a href="<%= waLink(businessWhatsapp, 'Bonjour, nous souhaitons publier le faire-part de ' + coupleNames(w) + ' (' + baseUrl + '/i/' + w.slug + ')') %>" target="_blank">Publier maintenant →</a></div>
+    <div class="cp-banner warn">
+      <i class="fa-solid fa-eye"></i>
+      <div>Votre faire-part est en <strong>aperçu</strong> : vos invités le verront après publication.
+        <a href="<%= waLink(businessWhatsapp, 'Bonjour, nous souhaitons publier le faire-part de ' + coupleNames(w) + ' (' + baseUrl + '/i/' + w.slug + ')') %>" target="_blank">Publier maintenant →</a></div>
+    </div>
   <% } %>
 
-  <div class="row between">
-    <div>
-      <h1 style="font-size:2.3rem;margin:0">Bonjour <%= w.bride %> &amp; <%= w.groom %> 👋</h1>
-      <% if (daysLeft !== null) { %><p class="muted" style="margin:0"><%= daysLeft > 0 ? 'J-' + daysLeft + ' avant le grand jour' : (daysLeft === 0 ? "C'est aujourd'hui ! 🎉" : 'Événement passé') %> · <%= fmtDate(w.event_date) %></p><% } %>
-    </div>
-    <div class="row">
-      <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>/export.csv"><i class="fa-solid fa-file-excel"></i> Export Excel</a>
-      <a class="btn btn-outline btn-sm" href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-qrcode"></i> Accueil jour J</a>
-    </div>
+  <!-- ===== Chiffres clés ===== -->
+  <div class="cp-kpis">
+    <div class="cp-kpi yes"><span class="lbl"><i class="fa-solid fa-user-check"></i> Confirmés</span><b class="num"><%= s.guests.people %></b><span class="sub"><%= s.guests.yes %> réponse(s)</span></div>
+    <div class="cp-kpi pending"><span class="lbl"><i class="fa-regular fa-clock"></i> En attente</span><b class="num"><%= s.guests.pending %></b><span class="sub">à relancer</span></div>
+    <div class="cp-kpi no"><span class="lbl"><i class="fa-solid fa-user-xmark"></i> Absents</span><b class="num"><%= s.guests.no %></b><span class="sub">excusés</span></div>
+    <div class="cp-kpi money"><span class="lbl"><i class="fa-solid fa-gift"></i> Cagnotte</span><b class="num"><%= fmtMoney(s.cagnotte.total) %></b><span class="sub"><%= s.cagnotte.count %> don(s)</span></div>
+  </div>
+  <div class="cp-meta-line">
+    <span><i class="fa-solid fa-users"></i> <%= s.guests.total %> invités · <%= s.guests.seats %> places prévues</span>
+    <span><i class="fa-regular fa-eye"></i> <%= w.views %> ouvertures</span>
   </div>
 
-  <div class="grid g4" style="margin-top:1.2rem">
-    <div class="card kpi"><b><%= s.guests.people %></b><span><i class="fa-solid fa-user-check" style="color:var(--green)"></i> personnes confirmées (<%= s.guests.yes %> réponses)</span></div>
-    <div class="card kpi"><b><%= s.guests.pending %></b><span><i class="fa-regular fa-clock" style="color:#8a6a00"></i> sans réponse</span></div>
-    <div class="card kpi"><b><%= s.guests.no %></b><span><i class="fa-solid fa-user-xmark" style="color:var(--red)"></i> absents</span></div>
-    <div class="card kpi"><b><%= s.guests.total %></b><span><i class="fa-solid fa-users"></i> invités (<%= s.guests.seats %> places)</span></div>
-    <div class="card kpi"><b><%= fmtMoney(s.cagnotte.total) %></b><span><i class="fa-solid fa-gift" style="color:var(--gold)"></i> cagnotte · <%= s.cagnotte.count %> don(s)</span></div>
-    <div class="card kpi"><b><%= w.views %></b><span><i class="fa-regular fa-eye"></i> ouvertures du faire-part</span></div>
-  </div>
-
-  <div class="section-h"><h2><i class="fa-solid fa-bullhorn" style="color:var(--gold)"></i> Partager</h2></div>
-  <div class="grid g2">
-    <div class="card">
-      <p class="small muted" style="margin-top:0">Lien général (groupes WhatsApp, statut, Facebook)</p>
-      <div class="copybox"><input readonly value="<%= inviteUrl(w) %>" onclick="this.select()"><button class="btn btn-sm btn-outline" data-copy="<%= inviteUrl(w) %>"><i class="fa-regular fa-copy"></i> Copier</button></div>
-      <div class="row" style="margin-top:.8rem">
-        <a class="btn btn-wa btn-sm" target="_blank" href="https://wa.me/?text=<%= encodeURIComponent(inviteMessage(w, null)) %>"><i class="fa-brands fa-whatsapp"></i> Partager sur WhatsApp</a>
-        <a class="btn btn-outline btn-sm" href="/i/<%= w.slug %>/qr.png?size=1000" download="qr-<%= w.slug %>.png"><i class="fa-solid fa-qrcode"></i> QR code pour cartons</a>
-      </div>
+  <!-- ===== Invités ===== -->
+  <section class="cp-section" id="invites">
+    <div class="cp-section-head">
+      <h2><i class="fa-solid fa-users"></i> Mes invités</h2>
+      <a class="cp-chip" href="/espace/<%= w.slug %>/export.csv"><i class="fa-solid fa-file-excel"></i> Excel</a>
     </div>
-    <div class="card">
-      <p style="margin-top:0"><strong><i class="fa-regular fa-lightbulb" style="color:var(--gold)"></i> Astuce :</strong> ajoutez vos invités ci-dessous pour leur envoyer un lien <em>personnalisé</em> (« Cher Tonton Paul… ») avec le nombre de places autorisées. Vous saurez qui a répondu, et qui relancer.</p>
-    </div>
-  </div>
 
-  <div class="section-h" id="invites"><h2><i class="fa-solid fa-users" style="color:var(--gold)"></i> Mes invités</h2></div>
-  <div class="grid g2">
-    <form class="card" method="post" action="/espace/<%= w.slug %>/invites">
-      <h3><i class="fa-solid fa-user-plus" style="font-size:1.1rem;color:var(--gold)"></i> Ajouter un invité</h3>
-      <div class="grid" style="grid-template-columns: 2fr 1.5fr .8fr">
-        <label>Nom<input name="name" required placeholder="Tonton Paul"></label>
-        <label>WhatsApp<input name="phone" type="tel" placeholder="657664546"></label>
-        <label>Places<input name="seats" type="number" min="1" max="20" value="1"></label>
-      </div>
-      <button class="btn btn-sm"><i class="fa-solid fa-plus"></i> Ajouter</button>
-    </form>
-    <form class="card" method="post" action="/espace/<%= w.slug %>/invites">
-      <h3><i class="fa-solid fa-file-import" style="font-size:1.1rem;color:var(--gold)"></i> Import rapide</h3>
-      <label>Une ligne par invité : <code>Nom, téléphone, places</code> (copier-coller depuis Excel accepté)
-        <textarea name="bulk" rows="3" placeholder="Famille Ngo Bassa, 690112233, 4&#10;Maman Rose, 677889900, 2"></textarea></label>
-      <button class="btn btn-sm"><i class="fa-solid fa-upload"></i> Importer</button>
-    </form>
-  </div>
-
-  <div class="card" style="margin-top:1.2rem">
-    <div class="row between" style="margin-bottom:.8rem">
-      <div class="tabs">
-        <a class="<%= !filter ? 'active' : '' %>" href="<%= qs({ f: '' }) %>#invites">Tous (<%= s.guests.total %>)</a>
-        <a class="<%= filter === 'yes' ? 'active' : '' %>" href="<%= qs({ f: 'yes' }) %>#invites">Présents (<%= s.guests.yes %>)</a>
-        <a class="<%= filter === 'pending' ? 'active' : '' %>" href="<%= qs({ f: 'pending' }) %>#invites">En attente (<%= s.guests.pending %>)</a>
-        <a class="<%= filter === 'no' ? 'active' : '' %>" href="<%= qs({ f: 'no' }) %>#invites">Absents (<%= s.guests.no %>)</a>
-      </div>
-      <label style="margin:0;min-width:240px">Message WhatsApp
-        <select onchange="location.href=this.value">
-          <% [['invite', '💌 Invitation'], ['pending', '🔔 Relance sans réponse'], ['j7', '📅 Rappel J-7'], ['j1', '✨ Rappel J-1']].forEach(function([k, l]) { %>
-            <option value="<%= qs({ m: k }) %>#invites" <%= mode === k ? 'selected' : '' %>><%= l %></option>
-          <% }) %>
-        </select>
-      </label>
+    <div class="cp-chips" role="tablist" aria-label="Filtrer">
+      <a class="cp-chip <%= !filter ? 'active' : '' %>" href="<%= qs({ f: '' }) %>#invites">Tous <b><%= s.guests.total %></b></a>
+      <a class="cp-chip <%= filter === 'yes' ? 'active' : '' %>" href="<%= qs({ f: 'yes' }) %>#invites">Présents <b><%= s.guests.yes %></b></a>
+      <a class="cp-chip <%= filter === 'pending' ? 'active' : '' %>" href="<%= qs({ f: 'pending' }) %>#invites">En attente <b><%= s.guests.pending %></b></a>
+      <a class="cp-chip <%= filter === 'no' ? 'active' : '' %>" href="<%= qs({ f: 'no' }) %>#invites">Absents <b><%= s.guests.no %></b></a>
     </div>
+
+    <p class="cp-label">Message WhatsApp à envoyer</p>
+    <div class="cp-chips">
+      <% [['invite', 'fa-envelope', 'Invitation'], ['pending', 'fa-bell', 'Relance'], ['j7', 'fa-calendar-week', 'Rappel J-7'], ['j1', 'fa-star', 'Rappel J-1']].forEach(function([k, ic, l]) { %>
+        <a class="cp-chip <%= mode === k ? 'active' : '' %>" href="<%= qs({ m: k }) %>#invites"><i class="fa-solid <%= ic %>"></i> <%= l %></a>
+      <% }) %>
+    </div>
+
     <% if (guests.length) { %>
-      <div class="row" style="margin-bottom:.8rem">
-        <button class="btn btn-wa btn-sm" id="sendNext"><i class="fa-solid fa-play"></i> Envoyer au suivant</button>
-        <span class="muted small" id="sendInfo">Ouvre WhatsApp pour chaque invité, l'un après l'autre. Appuyez sur « Envoyer » dans WhatsApp, puis revenez ici.</span>
+      <div class="cp-sender">
+        <button type="button" class="cp-btn wa" id="sendNext"><i class="fa-brands fa-whatsapp"></i> Envoyer au suivant</button>
+        <div class="cp-progress"><div id="sendBar"></div></div>
+        <p id="sendInfo">WhatsApp s'ouvre pour chaque invité, l'un après l'autre. Envoyez, puis revenez ici.</p>
       </div>
     <% } %>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Invité</th><th>Places</th><th>Réponse</th><th>Message</th><th></th></tr>
-        </thead>
-        <tbody>
-        <% if (!guests.length) { %><tr><td colspan="5" class="muted">Aucun invité dans cette liste.</td></tr><% } %>
-        <% guests.forEach(function(g) { %>
-          <tr class="<%= g.invited_at && mode === 'invite' ? 'sent' : '' %>">
-            <td><strong><%= g.name %></strong><br><span class="small muted"><%= g.phone ? prettyPhone(g.phone) : 'pas de numéro' %><%= g.source === 'public' ? ' · via lien général' : '' %></span></td>
-            <td><%= g.status === 'yes' ? g.attending_count + ' / ' : '' %><%= g.seats %></td>
-            <td><span class="badge b-<%= g.status %>"><%= statusLabel[g.status] %></span><% if (g.checked_in_at) { %> <span class="badge b-yes"><i class="fa-solid fa-check"></i> arrivé</span><% } %></td>
-            <td class="small" style="max-width:240px"><%= g.message || '' %></td>
-            <td class="row" style="flex-wrap:nowrap">
-              <a class="btn btn-wa btn-sm wa-send" data-id="<%= g.id %>" target="_blank" href="<%= waFor(g) %>"><i class="fa-brands fa-whatsapp"></i> <%= g.invited_at && mode === 'invite' ? 'Renvoyer' : 'WhatsApp' %></a>
-              <% if (g.status === 'yes') { %><a class="btn btn-outline btn-sm" target="_blank" href="/i/<%= w.slug %>/pass/<%= g.token %>" title="Pass d'entrée"><i class="fa-solid fa-qrcode"></i></a><% } %>
-              <form class="inline" method="post" action="/espace/<%= w.slug %>/invites/<%= g.id %>/delete" onsubmit="return confirm('Supprimer <%= g.name.replace(/'/g, '') %> ?')"><button class="btn btn-ghost btn-sm" title="Supprimer"><i class="fa-regular fa-trash-can"></i></button></form>
-            </td>
-          </tr>
-        <% }) %>
-        </tbody>
-      </table>
-    </div>
-  </div>
 
+    <div class="cp-guests">
+      <% if (!guests.length) { %>
+        <div class="cp-card cp-empty"><i class="fa-solid fa-user-plus"></i>Aucun invité dans cette liste.<br><a href="#ajouter">Ajoutez vos premiers invités</a></div>
+      <% } %>
+      <% guests.forEach(function(g) { %>
+        <article class="guest-card <%= g.invited_at && mode === 'invite' ? 'sent' : '' %>">
+          <div class="g-top">
+            <div class="g-avatar"><%= initials(g.name) %></div>
+            <div class="g-main">
+              <h3 class="g-name"><%= g.name %></h3>
+              <div class="g-phone"><%= g.phone ? prettyPhone(g.phone) : 'Pas de numéro' %></div>
+              <div class="g-badges">
+                <span class="badge b-<%= g.status %>"><%= statusLabel[g.status] %></span>
+                <span class="badge"><i class="fa-solid fa-chair"></i> <%= g.status === 'yes' ? g.attending_count + '/' : '' %><%= g.seats %></span>
+                <% if (g.checked_in_at) { %><span class="badge b-yes"><i class="fa-solid fa-check"></i> Arrivé</span><% } %>
+                <% if (g.source === 'public') { %><span class="badge">Lien général</span><% } %>
+                <span class="badge b-contacted g-sent"><i class="fa-solid fa-paper-plane"></i> Envoyé</span>
+              </div>
+            </div>
+          </div>
+          <% if (g.message) { %><p class="g-msg">« <%= g.message %> »</p><% } %>
+          <div class="g-actions">
+            <a class="cp-btn wa wa-send" data-id="<%= g.id %>" target="_blank" rel="noopener" href="<%= waFor(g) %>"><i class="fa-brands fa-whatsapp"></i> <%= g.invited_at && mode === 'invite' ? 'Renvoyer' : 'Envoyer' %></a>
+            <% if (g.status === 'yes') { %>
+              <a class="cp-btn sq" target="_blank" href="/i/<%= w.slug %>/pass/<%= g.token %>" aria-label="Pass d'entrée"><i class="fa-solid fa-qrcode"></i></a>
+            <% } else { %>
+              <span></span>
+            <% } %>
+            <form method="post" action="/espace/<%= w.slug %>/invites/<%= g.id %>/delete" onsubmit="return confirm('Supprimer <%= g.name.replace(/'/g, '') %> ?')">
+              <button class="cp-btn sq del" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>
+            </form>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  </section>
+
+  <!-- ===== Ajouter ===== -->
+  <section class="cp-section" id="ajouter">
+    <div class="cp-section-head"><h2><i class="fa-solid fa-user-plus"></i> Ajouter des invités</h2></div>
+    <div class="cp-forms">
+      <form class="cp-card cp-form" method="post" action="/espace/<%= w.slug %>/invites">
+        <label>Nom de l'invité<input name="name" required placeholder="Ex : Tonton Paul" autocomplete="off"></label>
+        <div class="two">
+          <label>WhatsApp<input name="phone" type="tel" inputmode="tel" placeholder="6XX XX XX XX"></label>
+          <label>Places<input name="seats" type="number" inputmode="numeric" min="1" max="20" value="1"></label>
+        </div>
+        <button class="cp-btn dark"><i class="fa-solid fa-plus"></i> Ajouter</button>
+      </form>
+      <details class="cp-details">
+        <summary><i class="fa-solid fa-file-import" style="color:var(--gold)"></i>&nbsp; Import rapide (plusieurs invités)</summary>
+        <form class="cp-form" method="post" action="/espace/<%= w.slug %>/invites">
+          <label>Une ligne par invité : <code>Nom, téléphone, places</code>
+            <textarea name="bulk" rows="5" placeholder="Famille Ngo Bassa, 690112233, 4&#10;Maman Rose, 677889900, 2"></textarea>
+          </label>
+          <button class="cp-btn dark"><i class="fa-solid fa-upload"></i> Importer la liste</button>
+        </form>
+      </details>
+    </div>
+  </section>
+
+  <!-- ===== Partager ===== -->
+  <section class="cp-section" id="partager">
+    <div class="cp-section-head"><h2><i class="fa-solid fa-share-nodes"></i> Partager le faire-part</h2></div>
+    <div class="cp-card">
+      <div class="cp-link"><i class="fa-solid fa-link"></i><span><%= inviteUrl(w) %></span></div>
+      <div class="cp-btn-row share">
+        <a class="cp-btn wa" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent(inviteMessage(w, null)) %>"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+        <button type="button" class="cp-btn" data-copy="<%= inviteUrl(w) %>"><i class="fa-regular fa-copy"></i> Copier</button>
+        <a class="cp-btn" href="/i/<%= w.slug %>/qr.png?size=1000" download="qr-<%= w.slug %>.png"><i class="fa-solid fa-qrcode"></i> QR code</a>
+      </div>
+      <p class="small muted" style="margin:10px 0 0"><i class="fa-regular fa-lightbulb" style="color:var(--gold)"></i> Pour un message personnalisé (« Cher Tonton Paul… ») et un suivi des réponses, ajoutez plutôt vos invités dans la liste.</p>
+    </div>
+  </section>
+
+  <!-- ===== Cagnotte ===== -->
   <% if (w.cagnotte_enabled) { %>
-  <div class="section-h" id="cagnotte"><h2><i class="fa-solid fa-gift" style="color:var(--gold)"></i> Cagnotte</h2></div>
-  <div class="card">
-    <% if (w.cagnotte_goal) { %><div class="progress"><div style="width:<%= Math.min(100, Math.round(s.cagnotte.total * 100 / w.cagnotte_goal)) %>%"></div></div><p class="small muted"><%= fmtMoney(s.cagnotte.total) %> sur <%= fmtMoney(w.cagnotte_goal) %></p><% } %>
-    <% if (!contributions.length) { %><p class="muted">Aucune contribution en ligne pour le moment.</p><% } else { %>
-    <div class="table-wrap"><table>
-      <thead>
-        <tr><th>Date</th><th>De</th><th>Montant</th><th>Mot</th></tr>
-      </thead>
-      <tbody>
-      <% contributions.forEach(function(c) { %><tr><td class="small"><%= (c.paid_at || c.created_at).slice(0, 16) %></td><td><%= c.name %></td><td><strong><%= fmtMoney(c.amount) %></strong></td><td class="small"><%= c.message || '' %></td></tr><% }) %>
-      </tbody>
-    </table></div>
-    <p class="small muted">Montant net reversé après l'événement : <strong><%= fmtMoney(s.cagnotte.net) %></strong><%= s.cagnotte.fee ? ' (frais de service ' + fmtMoney(s.cagnotte.fee) + ')' : '' %>.</p>
-    <% } %>
-  </div>
+  <section class="cp-section" id="cagnotte">
+    <div class="cp-section-head"><h2><i class="fa-solid fa-gift"></i> Cagnotte</h2></div>
+    <div class="cp-card">
+      <% if (w.cagnotte_goal) { const pct = Math.min(100, Math.round(s.cagnotte.total * 100 / w.cagnotte_goal)); %>
+        <div class="row between small"><strong><%= fmtMoney(s.cagnotte.total) %></strong><span class="muted"><%= pct %>% de <%= fmtMoney(w.cagnotte_goal) %></span></div>
+        <div class="cp-bar"><div style="width:<%= pct %>%"></div></div>
+      <% } %>
+      <% if (!contributions.length) { %>
+        <div class="cp-empty"><i class="fa-solid fa-hand-holding-heart"></i>Aucune contribution en ligne pour le moment.</div>
+      <% } else { %>
+        <% contributions.forEach(function(c) { %>
+          <div class="cp-gift">
+            <div><strong style="font-weight:600"><%= c.name %></strong><% if (c.message) { %><p>« <%= c.message %> »</p><% } %></div>
+            <strong><%= fmtMoney(c.amount) %></strong>
+          </div>
+        <% }) %>
+        <p class="small muted" style="margin:10px 0 0">Net reversé après l'événement : <strong><%= fmtMoney(s.cagnotte.net) %></strong><%= s.cagnotte.fee ? ' (frais ' + fmtMoney(s.cagnotte.fee) + ')' : '' %></p>
+      <% } %>
+    </div>
+  </section>
   <% } %>
 
-  <p class="muted small" style="text-align:center;margin-top:2rem">Besoin d'une modification ? <a target="_blank" href="<%= waLink(businessWhatsapp, 'Bonjour, modification pour le faire-part de ' + coupleNames(w) + ' : ') %>"><i class="fa-brands fa-whatsapp"></i> Écrivez-nous sur WhatsApp</a></p>
-</div>
+  <!-- ===== Jour J ===== -->
+  <section class="cp-section">
+    <a class="cp-btn gold" href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-door-open"></i> Mode accueil du jour J (scan des pass)</a>
+    <p class="small muted" style="text-align:center;margin:16px 0 0">Besoin d'une modification ?
+      <a target="_blank" href="<%= waLink(businessWhatsapp, 'Bonjour, modification pour le faire-part de ' + coupleNames(w) + ' : ') %>">Écrivez-nous sur WhatsApp</a></p>
+  </section>
+</main>
+
+<nav class="cp-tabbar" aria-label="Navigation">
+  <a href="#invites" class="main"><i class="fa-solid fa-users"></i>Invités</a>
+  <a href="#ajouter"><i class="fa-solid fa-user-plus"></i>Ajouter</a>
+  <a href="#partager"><i class="fa-solid fa-share-nodes"></i>Partager</a>
+  <% if (w.cagnotte_enabled) { %><a href="#cagnotte"><i class="fa-solid fa-gift"></i>Cagnotte</a><% } %>
+  <a href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-door-open"></i>Jour J</a>
+</nav>
 
 <script>
-  var slug = <%- JSON.stringify(w.slug) %>;
-  var btns = Array.prototype.slice.call(document.querySelectorAll('.wa-send'));
-  function markSent(b) {
-    b.closest('tr').classList.add('sent'); b.dataset.done = '1';
-    fetch('/espace/' + slug + '/invites/' + b.dataset.id + '/sent', { method: 'POST' });
-  }
-  btns.forEach(function (b) { b.addEventListener('click', function () { markSent(b); }); });
-  var next = document.getElementById('sendNext');
-  if (next) next.addEventListener('click', function () {
-    var b = btns.find(function (x) { return !x.dataset.done; });
-    if (!b) { document.getElementById('sendInfo').textContent = '✅ Tous les messages de cette liste ont été ouverts.'; return; }
-    markSent(b); window.open(b.href, '_blank');
-    var left = btns.filter(function (x) { return !x.dataset.done; }).length;
-    document.getElementById('sendInfo').textContent = 'Envoyé à ' + b.closest('tr').querySelector('strong').textContent + ' · reste ' + left;
-  });
-  document.querySelectorAll('[data-copy]').forEach(function (b) {
-    b.addEventListener('click', function () { navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copié ✓'; });
-  });
+  (function () {
+    var slug = <%- JSON.stringify(w.slug) %>;
+    var btns = Array.prototype.slice.call(document.querySelectorAll('.wa-send'));
+    var bar = document.getElementById('sendBar');
+    var info = document.getElementById('sendInfo');
+    function progress() {
+      if (!bar || !btns.length) return;
+      var done = btns.filter(function (x) { return x.dataset.done; }).length;
+      bar.style.width = Math.round(done * 100 / btns.length) + '%';
+      return done;
+    }
+    function markSent(b) {
+      b.closest('.guest-card').classList.add('sent');
+      b.dataset.done = '1';
+      fetch('/espace/' + slug + '/invites/' + b.dataset.id + '/sent', { method: 'POST' }).catch(function () {});
+      progress();
+    }
+    btns.forEach(function (b) { b.addEventListener('click', function () { markSent(b); }); });
+    var next = document.getElementById('sendNext');
+    if (next) next.addEventListener('click', function () {
+      var b = btns.find(function (x) { return !x.dataset.done; });
+      if (!b) { info.textContent = '✅ Tous les messages de cette liste ont été ouverts.'; return; }
+      markSent(b);
+      window.open(b.href, '_blank');
+      var name = b.closest('.guest-card').querySelector('.g-name').textContent;
+      var left = btns.length - progress();
+      info.textContent = 'Ouvert pour ' + name + (left ? ' · reste ' + left : ' · terminé ✅');
+    });
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var html = b.innerHTML;
+        (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.copy) : Promise.reject()).then(function () {
+          b.innerHTML = '<i class="fa-solid fa-check"></i> Copié';
+          setTimeout(function () { b.innerHTML = html; }, 1600);
+        }).catch(function () { prompt('Copiez le lien :', b.dataset.copy); });
+      });
+    });
+  })();
 </script>
 </body></html>

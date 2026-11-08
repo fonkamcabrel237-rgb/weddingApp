@@ -1,25 +1,49 @@
-<%- include('../partials/head', { title: 'Accueil — ' + coupleNames(w), noindex: true }) %>
-<div class="topbar"><div class="container"><span class="logo">🎟️ Accueil</span><a href="/espace/<%= w.slug %>">← Espace</a></div></div>
-<div class="container page" style="max-width:720px">
-  <h1 style="font-size:2rem;margin-bottom:.2rem"><%= coupleNames(w) %></h1>
-  <p class="muted">Arrivés : <strong><%= s.guests.checkedIn %></strong> / <%= s.guests.yes %> invités confirmés (<%= s.guests.people %> personnes)</p>
-  <div class="card" style="margin-bottom:1rem">
-    <p style="margin-top:0"><strong>📷 Scanner un pass :</strong> ouvrez l'appareil photo du téléphone et visez le QR code de l'invité. La fiche s'ouvre automatiquement.</p>
-    <form method="get" class="row"><input name="s" value="<%= search %>" placeholder="Ou rechercher un nom…" style="flex:1;margin:0"><button class="btn btn-sm">Rechercher</button></form>
+<%- include('../partials/head', { title: 'Accueil — ' + coupleNames(w), noindex: true, bodyClass: 'couple', extraCss: 'couple.css' }) %>
+<header class="cp-header">
+  <div class="cp-wrap">
+    <a class="cp-icon-btn" href="/espace/<%= w.slug %>" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></a>
+    <h1 class="cp-names" style="flex:1">Accueil jour J<small><%= coupleNames(w) %></small></h1>
   </div>
-  <div class="card table-wrap">
-    <table>
-      <% if (!guests.length) { %><tr><td class="muted">Aucun invité confirmé trouvé.</td></tr><% } %>
+</header>
+
+<main class="cp-wrap" style="padding-bottom:24px">
+  <div class="cp-kpis" style="grid-template-columns:1fr 1fr">
+    <div class="cp-kpi yes"><span class="lbl"><i class="fa-solid fa-door-open"></i> Arrivés</span><b class="num"><%= s.guests.checkedIn %> / <%= s.guests.yes %></b><span class="sub">pass validés</span></div>
+    <div class="cp-kpi"><span class="lbl"><i class="fa-solid fa-users"></i> Attendus</span><b class="num"><%= s.guests.people %></b><span class="sub">personnes au total</span></div>
+  </div>
+
+  <div class="cp-banner warn" style="background:#fff;border-color:var(--line);color:var(--ink)">
+    <i class="fa-solid fa-camera" style="color:var(--gold)"></i>
+    <div><strong>Scanner un pass :</strong> ouvrez l'appareil photo du téléphone et visez le QR code de l'invité. Sa fiche s'ouvre automatiquement.</div>
+  </div>
+
+  <section class="cp-section">
+    <form method="get" class="cp-search">
+      <input name="s" value="<%= search %>" placeholder="Rechercher un nom…" type="search" autocomplete="off">
+      <button class="cp-btn dark" aria-label="Rechercher"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </form>
+  </section>
+
+  <section class="cp-section" style="margin-top:12px">
+    <div class="cp-guests" style="display:flex;flex-direction:column;gap:8px">
+      <% if (!guests.length) { %><div class="cp-card cp-empty"><i class="fa-solid fa-user-slash"></i>Aucun invité confirmé trouvé.</div><% } %>
       <% guests.forEach(function(g) { %>
-        <tr>
-          <td><strong><%= g.name %></strong><br><span class="small muted"><%= g.attending_count %> pers. · <%= g.token.toUpperCase() %></span></td>
-          <td style="text-align:right">
-            <% if (g.checked_in_at) { %><span class="badge b-yes">✓ arrivé <%= g.checked_in_at.slice(11, 16) %> UTC</span>
-            <% } else { %><form class="inline" method="post" action="/espace/<%= w.slug %>/checkin/<%= g.token %>"><input type="hidden" name="back" value="accueil"><button class="btn btn-gold btn-sm">Valider l'entrée</button></form><% } %>
-          </td>
-        </tr>
+        <div class="checkin-row <%= g.checked_in_at ? 'done' : '' %>">
+          <div style="min-width:0">
+            <strong style="display:block;overflow-wrap:anywhere"><%= g.name %></strong>
+            <span class="small muted"><%= g.attending_count %> pers. · <%= g.token.toUpperCase() %></span>
+          </div>
+          <% if (g.checked_in_at) { %>
+            <span class="badge b-yes"><i class="fa-solid fa-check"></i> Arrivé</span>
+          <% } else { %>
+            <form method="post" action="/espace/<%= w.slug %>/checkin/<%= g.token %>">
+              <input type="hidden" name="back" value="accueil">
+              <button class="cp-btn gold"><i class="fa-solid fa-check"></i> Valider</button>
+            </form>
+          <% } %>
+        </div>
       <% }) %>
-    </table>
-  </div>
-</div>
+    </div>
+  </section>
+</main>
 </body></html>

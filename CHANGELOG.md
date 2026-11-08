@@ -4,6 +4,19 @@ Toutes les modifications notables apportées au projet **Ndolo Invitations** son
 
 ---
 
+## [1.2.0] - 2026-11-08
+### Ajouté
+* Feuille de style dédiée **Mobile-First** pour l'espace mariés (`public/css/couple.css`) conçue à partir d'un écran smartphone `360px` avec enrichissement progressif (`min-width: 640px` et `min-width: 960px`).
+* Barre de navigation basse fixe (`.cp-tabbar`) façon application mobile sur l'espace mariés (Invités, Ajouter, Envoi WhatsApp, Cagnotte, Jour J).
+* Filtres rapides horizontaux (`.cp-chips`) et barre d'envoi WhatsApp séquentiel collante (`.cp-sender`) avec jauge de progression.
+
+### Modifié
+* Refonte **Mobile-First** complète du dashboard des mariés (`views/couple/dashboard.ejs`) et de l'écran d'accueil Jour J / hôtesses (`views/couple/accueil.ejs`) : suppression totale des tableaux HTML (`<table>`) au profit de cartes tactiles (`.guest-card`, `.checkin-row`, `.cp-gift`).
+* Harmonisation visuelle et responsive du back-office Admin (`views/admin/dashboard.ejs`, `views/admin/wedding-form.ejs`, `views/partials/admin-nav.ejs`) avec en-têtes dorés et cartes empilables sans débordement horizontal.
+* Suppression du `min-width: 680px` global sur la balise `table` dans `public/css/app.css` et désactivation du cache statique CSS en développement (`?v=4.0`).
+
+---
+
 ## [1.1.0] - 2026-11-07
 ### Ajouté
 * Intégration de la suite d'icônes vectorielles **FontAwesome 6.5.2** (CDN).

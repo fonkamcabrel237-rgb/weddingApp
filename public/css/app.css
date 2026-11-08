@@ -112,7 +112,8 @@ input[type=checkbox] { display:inline; width:auto; margin-right:.4rem; }
 .table-wrap::-webkit-scrollbar-thumb { background: rgba(184, 145, 63, 0.25); border-radius: 99px; }
 .table-wrap::-webkit-scrollbar-thumb:hover { background: rgba(184, 145, 63, 0.5); }
 
-table { width:100%; min-width: 680px; border-collapse: collapse; font-size:.88rem; }
+table { width:100%; border-collapse: collapse; font-size:.88rem; }
+.table-wrap table { min-width: 680px; }
 th, td { text-align:left; padding:.75rem .65rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
 th { font-size:.72rem; text-transform: uppercase; letter-spacing:.06em; color: var(--muted); font-weight:600; }
 tr { transition: background-color .15s ease; }
