@@ -2,24 +2,48 @@
 <header class="cp-header">
   <div class="cp-wrap">
     <a class="cp-icon-btn" href="/espace/<%= w.slug %>" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></a>
-    <h1 class="cp-names" style="flex:1">Accueil jour J<small><%= coupleNames(w) %></small></h1>
+    <h1 class="cp-names" style="flex:1">Accueil &amp; Protocole Jour J<small><%= coupleNames(w) %></small></h1>
   </div>
 </header>
 
 <main class="cp-wrap" style="padding-bottom:24px">
   <div class="cp-kpis" style="grid-template-columns:1fr 1fr">
     <div class="cp-kpi yes"><span class="lbl"><i class="fa-solid fa-door-open"></i> Arrivés</span><b class="num"><%= s.guests.checkedIn %> / <%= s.guests.yes %></b><span class="sub">pass validés</span></div>
-    <div class="cp-kpi"><span class="lbl"><i class="fa-solid fa-users"></i> Attendus</span><b class="num"><%= s.guests.people %></b><span class="sub">personnes au total</span></div>
+    <div class="cp-kpi"><span class="lbl"><i class="fa-solid fa-users"></i> Attendus</span><b class="num"><%= s.guests.people %></b><span class="sub">personnes confirmées</span></div>
   </div>
 
   <div class="cp-banner warn" style="background:#fff;border-color:var(--line);color:var(--ink)">
     <i class="fa-solid fa-camera" style="color:var(--gold)"></i>
-    <div><strong>Scanner un pass :</strong> ouvrez l'appareil photo du téléphone et visez le QR code de l'invité. Sa fiche s'ouvre automatiquement.</div>
+    <div><strong>Scanner un Pass QR :</strong> ouvrez l'appareil photo du téléphone et visez le QR code de l'invité pour voir sa <strong>Table &amp; ses Sièges</strong>.</div>
   </div>
+
+  <% if (tables && tables.length) { %>
+    <details class="cp-details" style="margin-top:14px" open>
+      <summary><i class="fa-solid fa-chair" style="color:var(--gold)"></i>&nbsp; Plan des tables en direct (<%= tables.length %> tables)</summary>
+      <div class="table-grid" style="margin-top:8px">
+        <% tables.forEach(function(t) {
+          const catInfo = GUEST_CATEGORIES[t.category] || GUEST_CATEGORIES.famille_mariee;
+        %>
+          <div class="table-card" style="padding:10px 12px">
+            <div class="t-head">
+              <div>
+                <h3 class="t-title" style="font-size:.92rem"><i class="fa-solid fa-chair"></i> <%= t.name %></h3>
+                <span class="t-cat"><%= catInfo.short %></span>
+              </div>
+              <span class="t-count"><%= t.checkedIn %>/<%= t.occupied %> arrivés</span>
+            </div>
+            <div class="small muted" style="margin-top:6px">
+              Capacité : <%= t.occupied %>/<%= t.capacity %> réservées (<%= t.free %> libre<%= t.free > 1 ? 's' : '' %>)
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </details>
+  <% } %>
 
   <section class="cp-section">
     <form method="get" class="cp-search">
-      <input name="s" value="<%= search %>" placeholder="Rechercher un nom…" type="search" autocomplete="off">
+      <input name="s" value="<%= search %>" placeholder="Rechercher un invité ou une table…" type="search" autocomplete="off">
       <button class="cp-btn dark" aria-label="Rechercher"><i class="fa-solid fa-magnifying-glass"></i></button>
     </form>
   </section>
@@ -27,14 +51,24 @@
   <section class="cp-section" style="margin-top:12px">
     <div class="cp-guests" style="display:flex;flex-direction:column;gap:8px">
       <% if (!guests.length) { %><div class="cp-card cp-empty"><i class="fa-solid fa-user-slash"></i>Aucun invité confirmé trouvé.</div><% } %>
-      <% guests.forEach(function(g) { %>
+      <% guests.forEach(function(g) {
+        const catInfo = GUEST_CATEGORIES[g.category] || GUEST_CATEGORIES.famille_mariee;
+      %>
         <div class="checkin-row <%= g.checked_in_at ? 'done' : '' %>">
-          <div style="min-width:0">
-            <strong style="display:block;overflow-wrap:anywhere"><%= g.name %></strong>
-            <span class="small muted"><%= g.attending_count %> pers. · <%= g.token.toUpperCase() %></span>
+          <div style="min-width:0;flex:1">
+            <strong style="display:block;overflow-wrap:anywhere;font-size:.98rem"><%= g.name %></strong>
+            <div class="g-badges" style="margin-top:4px">
+              <span class="badge"><i class="fa-solid fa-users"></i> <%= g.attending_count %> pers.</span>
+              <span class="badge b-cat"><%= catInfo.short %></span>
+              <% if (g.table_name) { %>
+                <span class="badge b-table">🪑 <%= g.table_name %><%= g.seat_numbers ? ' · #' + g.seat_numbers : '' %></span>
+              <% } else { %>
+                <span class="badge b-unseated">⚠️ Sans table</span>
+              <% } %>
+            </div>
           </div>
           <% if (g.checked_in_at) { %>
-            <span class="badge b-yes"><i class="fa-solid fa-check"></i> Arrivé</span>
+            <span class="badge b-yes"><i class="fa-solid fa-check"></i> Installé</span>
           <% } else { %>
             <form method="post" action="/espace/<%= w.slug %>/checkin/<%= g.token %>">
               <input type="hidden" name="back" value="accueil">

@@ -1,14 +1,29 @@
 // Script d'initialisation avec un exemple complet et réaliste (Douala, Cameroun)
 require('dotenv').config();
 const { q } = require('../src/db');
-const { createWedding, addGuest } = require('../src/weddings');
+const { createWedding, addGuest, addTable, autoAssignTables, recomputeTableSeats } = require('../src/weddings');
 
-console.log('🌱 Création des données de démonstration...');
+console.log('🌱 Création / mise à jour des données de démonstration...');
 
-// Vérifier si un mariage demo existe déjà
+function ensureDemoTables(weddingId) {
+  const existingTables = q.all('SELECT * FROM wedding_tables WHERE wedding_id = ?', weddingId);
+  if (!existingTables.length) {
+    addTable(weddingId, { name: "Table d'Honneur — Ndolo", capacity: 8, category: 'honneur' });
+    addTable(weddingId, { name: 'Table Mont Cameroun', capacity: 10, category: 'vip_mariee' });
+    addTable(weddingId, { name: 'Table Wouri', capacity: 10, category: 'famille_marie' });
+    addTable(weddingId, { name: 'Table Sanaga', capacity: 10, category: 'amis' });
+  }
+  autoAssignTables(weddingId);
+  for (const t of q.all('SELECT id FROM wedding_tables WHERE wedding_id = ?', weddingId)) {
+    recomputeTableSeats(t.id);
+  }
+}
+
 const existing = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
 if (existing) {
-  console.log('✅ Mariage de démo déjà existant (/i/demo)');
+  q.run("UPDATE weddings SET max_guests = COALESCE(max_guests, 150), strict_rsvp = COALESCE(strict_rsvp, 1) WHERE id = ?", existing.id);
+  ensureDemoTables(existing.id);
+  console.log('✅ Mariage de démo mis à jour avec tables et places (/i/demo)');
   process.exit(0);
 }
 
@@ -48,19 +63,29 @@ const w = createWedding({
   momo_number: '237670123456',
   momo_name: 'Junior Manga',
   om_number: '237690123456',
-  om_name: 'Grâce Ngo'
+  om_name: 'Grâce Ngo',
+  max_guests: 150,
+  strict_rsvp: 1,
 });
 
-// Ajouter quelques invités types
-const g1 = addGuest(w.id, { name: 'Tonton Paul & Famille', phone: '237677112233', seats: 4, source: 'list' });
-const g2 = addGuest(w.id, { name: 'Maman Jacqueline', phone: '237699445566', seats: 2, source: 'list' });
-const g3 = addGuest(w.id, { name: 'Boris Kamga (Témoin)', phone: '237655889900', seats: 1, source: 'list' });
-const g4 = addGuest(w.id, { name: 'Famille Eboa', phone: '237670001122', seats: 3, source: 'list' });
+// Créer les tables personnalisées par les mariés
+addTable(w.id, { name: "Table d'Honneur — Ndolo", capacity: 8, category: 'honneur' });
+addTable(w.id, { name: 'Table Mont Cameroun', capacity: 10, category: 'vip_mariee' });
+addTable(w.id, { name: 'Table Wouri', capacity: 10, category: 'famille_marie' });
+addTable(w.id, { name: 'Table Sanaga', capacity: 10, category: 'amis' });
+
+// Ajouter quelques invités types avec leur cercle d'intimité
+const g1 = addGuest(w.id, { name: 'Tonton Paul & Famille', phone: '237677112233', seats: 4, category: 'vip_mariee', table_id: 'auto', source: 'list' });
+const g2 = addGuest(w.id, { name: 'Maman Jacqueline', phone: '237699445566', seats: 2, category: 'vip_mariee', table_id: 'auto', source: 'list' });
+const g3 = addGuest(w.id, { name: 'Boris Kamga (Témoin)', phone: '237655889900', seats: 1, category: 'honneur', table_id: 'auto', source: 'list' });
+const g4 = addGuest(w.id, { name: 'Famille Eboa', phone: '237670001122', seats: 3, category: 'famille_marie', table_id: 'auto', source: 'list' });
 
 // Confirmer certains RSVP avec des requêtes paramétrées sécurisées
 q.run("UPDATE guests SET status = 'yes', attending_count = 4, message = ?, responded_at = datetime('now') WHERE id = ?", "Que Dieu bénisse abondamment votre foyer ! Très honorés.", g1.id);
 q.run("UPDATE guests SET status = 'yes', attending_count = 2, message = ?, responded_at = datetime('now') WHERE id = ?", "Toutes nos félicitations aux futurs mariés ! Hâte d'y être.", g2.id);
 q.run("UPDATE guests SET status = 'yes', attending_count = 1, message = ?, responded_at = datetime('now') WHERE id = ?", "Présent mon frère, on va célébrer ça comme il se doit ! 🔥", g3.id);
+
+ensureDemoTables(w.id);
 
 // Ajouter quelques contributions de cagnotte
 q.run(`INSERT INTO contributions (wedding_id, name, phone, amount, message, reference, status, paid_at)

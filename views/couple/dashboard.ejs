@@ -7,6 +7,7 @@
   const qs = (o) => '?' + new URLSearchParams(Object.assign({ f: filter || '', m: mode }, o)).toString();
   const initials = (n) => String(n).trim().split(/\s+/).slice(0, 2).map((x) => x.charAt(0)).join('').toUpperCase();
   const countdown = daysLeft === null ? '' : (daysLeft > 0 ? 'J-' + daysLeft : (daysLeft === 0 ? "C'est aujourd'hui !" : 'Événement passé'));
+  const quotaPct = Math.min(100, Math.round((s.guests.activeSeats * 100) / Math.max(1, s.guests.maxGuests)));
 %>
 
 <header class="cp-header">
@@ -18,6 +19,7 @@
 
 <main class="cp-wrap">
   <% if (flash) { %><div class="cp-banner ok"><i class="fa-solid fa-circle-check"></i><div><%= flash %></div></div><% } %>
+  <% if (flashError) { %><div class="cp-banner err"><i class="fa-solid fa-triangle-exclamation"></i><div><%= flashError %></div></div><% } %>
   <% if (w.status !== 'published') { %>
     <div class="cp-banner warn">
       <i class="fa-solid fa-eye"></i>
@@ -26,16 +28,25 @@
     </div>
   <% } %>
 
+  <!-- ===== Jauge Quota Max & Places Assises ===== -->
+  <div class="quota-card">
+    <div class="quota-top">
+      <span><i class="fa-solid fa-chair" style="color:var(--gold)"></i> Quota invités &amp; places</span>
+      <strong><%= s.guests.activeSeats %> / <%= s.guests.maxGuests %> places</strong>
+    </div>
+    <div class="quota-bar"><div class="<%= s.guests.activeSeats > s.guests.maxGuests ? 'over' : '' %>" style="width:<%= quotaPct %>%"></div></div>
+    <div class="quota-sub">
+      <span>Reste <b><%= s.guests.remainingQuota %></b> place(s) sur votre quota max</span>
+      <span><i class="fa-solid fa-utensils"></i> <%= s.tables.count %> table(s) · <%= s.guests.seatedSeats %> place(s) placées</span>
+    </div>
+  </div>
+
   <!-- ===== Chiffres clés ===== -->
   <div class="cp-kpis">
     <div class="cp-kpi yes"><span class="lbl"><i class="fa-solid fa-user-check"></i> Confirmés</span><b class="num"><%= s.guests.people %></b><span class="sub"><%= s.guests.yes %> réponse(s)</span></div>
     <div class="cp-kpi pending"><span class="lbl"><i class="fa-regular fa-clock"></i> En attente</span><b class="num"><%= s.guests.pending %></b><span class="sub">à relancer</span></div>
-    <div class="cp-kpi no"><span class="lbl"><i class="fa-solid fa-user-xmark"></i> Absents</span><b class="num"><%= s.guests.no %></b><span class="sub">excusés</span></div>
+    <div class="cp-kpi no"><span class="lbl"><i class="fa-solid fa-user-xmark"></i> Absents</span><b class="num"><%= s.guests.no %></b><span class="sub">places libérées</span></div>
     <div class="cp-kpi money"><span class="lbl"><i class="fa-solid fa-gift"></i> Cagnotte</span><b class="num"><%= fmtMoney(s.cagnotte.total) %></b><span class="sub"><%= s.cagnotte.count %> don(s)</span></div>
-  </div>
-  <div class="cp-meta-line">
-    <span><i class="fa-solid fa-users"></i> <%= s.guests.total %> invités · <%= s.guests.seats %> places prévues</span>
-    <span><i class="fa-regular fa-eye"></i> <%= w.views %> ouvertures</span>
   </div>
 
   <!-- ===== Invités ===== -->
@@ -49,6 +60,7 @@
       <a class="cp-chip <%= !filter ? 'active' : '' %>" href="<%= qs({ f: '' }) %>#invites">Tous <b><%= s.guests.total %></b></a>
       <a class="cp-chip <%= filter === 'yes' ? 'active' : '' %>" href="<%= qs({ f: 'yes' }) %>#invites">Présents <b><%= s.guests.yes %></b></a>
       <a class="cp-chip <%= filter === 'pending' ? 'active' : '' %>" href="<%= qs({ f: 'pending' }) %>#invites">En attente <b><%= s.guests.pending %></b></a>
+      <a class="cp-chip <%= filter === 'unseated' ? 'active' : '' %>" href="<%= qs({ f: 'unseated' }) %>#invites">Sans table <b><%= s.guests.unseatedSeats %></b></a>
       <a class="cp-chip <%= filter === 'no' ? 'active' : '' %>" href="<%= qs({ f: 'no' }) %>#invites">Absents <b><%= s.guests.no %></b></a>
     </div>
 
@@ -69,9 +81,11 @@
 
     <div class="cp-guests">
       <% if (!guests.length) { %>
-        <div class="cp-card cp-empty"><i class="fa-solid fa-user-plus"></i>Aucun invité dans cette liste.<br><a href="#ajouter">Ajoutez vos premiers invités</a></div>
+        <div class="cp-card cp-empty"><i class="fa-solid fa-user-plus"></i>Aucun invité dans ce filtre.<br><a href="#ajouter">Ajoutez vos invités</a></div>
       <% } %>
-      <% guests.forEach(function(g) { %>
+      <% guests.forEach(function(g) {
+        const catInfo = GUEST_CATEGORIES[g.category] || GUEST_CATEGORIES.famille_mariee;
+      %>
         <article class="guest-card <%= g.invited_at && mode === 'invite' ? 'sent' : '' %>">
           <div class="g-top">
             <div class="g-avatar"><%= initials(g.name) %></div>
@@ -80,18 +94,43 @@
               <div class="g-phone"><%= g.phone ? prettyPhone(g.phone) : 'Pas de numéro' %></div>
               <div class="g-badges">
                 <span class="badge b-<%= g.status %>"><%= statusLabel[g.status] %></span>
-                <span class="badge"><i class="fa-solid fa-chair"></i> <%= g.status === 'yes' ? g.attending_count + '/' : '' %><%= g.seats %></span>
+                <span class="badge"><i class="fa-solid fa-chair"></i> <%= g.status === 'yes' ? g.attending_count + '/' : '' %><%= g.seats %> pl.</span>
+                <span class="badge b-cat"><i class="fa-solid <%= catInfo.icon %>"></i> <%= catInfo.short %></span>
+                <% if (g.table_name && g.status !== 'no') { %>
+                  <span class="badge b-table">🪑 <%= g.table_name %><%= g.seat_numbers ? ' · #' + g.seat_numbers : '' %></span>
+                <% } else if (g.status !== 'no') { %>
+                  <span class="badge b-unseated">⚠️ Sans table</span>
+                <% } %>
                 <% if (g.checked_in_at) { %><span class="badge b-yes"><i class="fa-solid fa-check"></i> Arrivé</span><% } %>
-                <% if (g.source === 'public') { %><span class="badge">Lien général</span><% } %>
                 <span class="badge b-contacted g-sent"><i class="fa-solid fa-paper-plane"></i> Envoyé</span>
               </div>
             </div>
           </div>
+
+          <% if (g.status !== 'no') { %>
+            <form class="g-assign" method="post" action="/espace/<%= w.slug %>/invites/<%= g.id %>/assign">
+              <select name="category" aria-label="Intimité" onchange="this.form.submit()">
+                <% Object.entries(GUEST_CATEGORIES).forEach(function([k, info]) { %>
+                  <option value="<%= k %>" <%= g.category === k ? 'selected' : '' %>><%= info.short %></option>
+                <% }) %>
+              </select>
+              <select name="table_id" aria-label="Table attribuée" onchange="this.form.submit()">
+                <option value="none" <%= !g.table_id ? 'selected' : '' %>>— Choisir une table —</option>
+                <option value="auto">⚡ Auto (selon intimité)</option>
+                <% tables.forEach(function(t) { %>
+                  <option value="<%= t.id %>" <%= g.table_id === t.id ? 'selected' : '' %>>
+                    <%= t.name %> (<%= t.occupied %>/<%= t.capacity %>)
+                  </option>
+                <% }) %>
+              </select>
+            </form>
+          <% } %>
+
           <% if (g.message) { %><p class="g-msg">« <%= g.message %> »</p><% } %>
           <div class="g-actions">
             <a class="cp-btn wa wa-send" data-id="<%= g.id %>" target="_blank" rel="noopener" href="<%= waFor(g) %>"><i class="fa-brands fa-whatsapp"></i> <%= g.invited_at && mode === 'invite' ? 'Renvoyer' : 'Envoyer' %></a>
             <% if (g.status === 'yes') { %>
-              <a class="cp-btn sq" target="_blank" href="/i/<%= w.slug %>/pass/<%= g.token %>" aria-label="Pass d'entrée"><i class="fa-solid fa-qrcode"></i></a>
+              <a class="cp-btn sq" target="_blank" href="/i/<%= w.slug %>/pass/<%= g.token %>" title="Voir le Pass QR (Nom + Table)" aria-label="Pass d'entrée"><i class="fa-solid fa-qrcode"></i></a>
             <% } else { %>
               <span></span>
             <% } %>
@@ -104,25 +143,177 @@
     </div>
   </section>
 
-  <!-- ===== Ajouter ===== -->
+  <!-- ===== Tables & Places assises (créées par les mariés) ===== -->
+  <section class="cp-section" id="tables">
+    <div class="cp-section-head">
+      <h2><i class="fa-solid fa-chair"></i> Mes tables &amp; places (<%= tables.length %>)</h2>
+      <% if (tables.length && s.guests.unseatedSeats > 0) { %>
+        <form method="post" action="/espace/<%= w.slug %>/tables/auto-assign" style="margin:0">
+          <button class="cp-chip active" style="cursor:pointer"><i class="fa-solid fa-wand-magic-sparkles"></i> Placer auto (<%= s.guests.unseatedSeats %>)</button>
+        </form>
+      <% } %>
+    </div>
+
+    <div class="cp-forms">
+      <!-- Création d'une table personnalisée par les mariés -->
+      <form class="cp-card cp-form" method="post" action="/espace/<%= w.slug %>/tables">
+        <p class="cp-label" style="margin-top:0">Créer une table personnalisée</p>
+        <label>Nom de la table (défini par vous)
+          <input name="name" required placeholder="Ex : Table d'Honneur, Table Baham, Table Ndolo…" autocomplete="off">
+        </label>
+        <div class="two">
+          <label>Cercle d'intimité de cette table
+            <select name="category">
+              <% Object.entries(GUEST_CATEGORIES).forEach(function([k, info]) { %>
+                <option value="<%= k %>"><%= info.label %></option>
+              <% }) %>
+            </select>
+          </label>
+          <label>Chaises
+            <input name="capacity" type="number" inputmode="numeric" min="1" max="50" value="10">
+          </label>
+        </div>
+        <button class="cp-btn gold"><i class="fa-solid fa-plus"></i> Créer cette table</button>
+      </form>
+
+      <div>
+        <!-- Création rapide de plusieurs tables -->
+        <details class="cp-details">
+          <summary><i class="fa-solid fa-layer-group" style="color:var(--gold)"></i>&nbsp; Créer plusieurs tables d'un coup</summary>
+          <form class="cp-form" method="post" action="/espace/<%= w.slug %>/tables">
+            <label>Une table par ligne : <code>Nom de la table, nombre de places</code>
+              <textarea name="bulk_tables" rows="4" placeholder="Table d'Honneur, 10&#10;Table Wouri, 10&#10;Table Mont Cameroun, 10"></textarea>
+            </label>
+            <label>Intimité par défaut pour ces tables
+              <select name="default_category">
+                <% Object.entries(GUEST_CATEGORIES).forEach(function([k, info]) { %>
+                  <option value="<%= k %>"><%= info.label %></option>
+                <% }) %>
+              </select>
+            </label>
+            <button class="cp-btn dark"><i class="fa-solid fa-plus"></i> Créer la liste de tables</button>
+          </form>
+        </details>
+
+        <!-- Réglage du Quota Max des mariés & Liste stricte -->
+        <details class="cp-details" style="margin-top:10px">
+          <summary><i class="fa-solid fa-sliders" style="color:var(--gold)"></i>&nbsp; Quota max (<%= s.guests.maxGuests %> places) &amp; Sécurité RSVP</summary>
+          <form class="cp-form" method="post" action="/espace/<%= w.slug %>/settings">
+            <label>Nombre maximum de places souhaité pour votre mariage
+              <input name="max_guests" type="number" inputmode="numeric" min="10" max="5000" value="<%= w.max_guests || 200 %>" required>
+            </label>
+            <label>Accès au formulaire RSVP sur le faire-part
+              <select name="strict_rsvp">
+                <option value="1" <%= w.strict_rsvp !== 0 ? 'selected' : '' %>>🔒 Liste fermée stricte (seuls vos invités enregistrés)</option>
+                <option value="0" <%= w.strict_rsvp === 0 ? 'selected' : '' %>>🔓 Ouvert dans la limite du quota max</option>
+              </select>
+            </label>
+            <button class="cp-btn dark"><i class="fa-solid fa-check"></i> Enregistrer</button>
+          </form>
+        </details>
+      </div>
+    </div>
+
+    <!-- Liste des tables créées par les mariés -->
+    <% if (!tables.length) { %>
+      <div class="cp-card cp-empty" style="margin-top:12px">
+        <i class="fa-solid fa-chair"></i>
+        Vous n'avez pas encore défini vos tables.<br>Créez vos tables ci-dessus avec leurs noms et leur nombre de places.
+      </div>
+    <% } else { %>
+      <div class="table-grid">
+        <% tables.forEach(function(t) {
+          const catInfo = GUEST_CATEGORIES[t.category] || GUEST_CATEGORIES.famille_mariee;
+          const pct = Math.min(100, Math.round((t.occupied * 100) / Math.max(1, t.capacity)));
+          const isFull = t.free === 0;
+        %>
+          <div class="table-card <%= isFull ? 'full' : '' %>">
+            <div class="t-head">
+              <div>
+                <h3 class="t-title"><i class="fa-solid fa-chair"></i> <%= t.name %></h3>
+                <span class="t-cat"><i class="fa-solid <%= catInfo.icon %>"></i> <%= catInfo.short %></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="t-count"><%= t.occupied %> / <%= t.capacity %> pl.</span>
+                <form method="post" action="/espace/<%= w.slug %>/tables/<%= t.id %>/delete" style="margin:0" onsubmit="return confirm('Supprimer <%= t.name.replace(/'/g, '') %> ?')">
+                  <button class="cp-btn sq del" style="width:32px;min-height:32px;padding:0;border-radius:8px" aria-label="Supprimer la table"><i class="fa-regular fa-trash-can"></i></button>
+                </form>
+              </div>
+            </div>
+            <div class="t-bar"><div style="width:<%= pct %>%"></div></div>
+            <div class="small muted" style="display:flex;justify-content:space-between">
+              <span><%= t.free > 0 ? t.free + ' chaise(s) libre(s)' : 'Table complète' %></span>
+              <span><%= t.confirmed %> confirmé(s)</span>
+            </div>
+            <% if (t.guests.length) { %>
+              <div class="t-guests">
+                <% t.guests.forEach(function(g) { %>
+                  <span class="t-guest-pill">
+                    <b>#<%= g.seat_numbers || '?' %></b> <%= g.name %> (<%= g.status === 'yes' ? g.attending_count : g.seats %>)
+                  </span>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <p class="small muted" style="margin:8px 0 0">Aucun invité assis sur cette table.</p>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+
+  <!-- ===== Ajouter des invités ===== -->
   <section class="cp-section" id="ajouter">
-    <div class="cp-section-head"><h2><i class="fa-solid fa-user-plus"></i> Ajouter des invités</h2></div>
+    <div class="cp-section-head">
+      <h2><i class="fa-solid fa-user-plus"></i> Ajouter des invités</h2>
+      <span class="small muted">Reste <b><%= s.guests.remainingQuota %></b> pl.</span>
+    </div>
     <div class="cp-forms">
       <form class="cp-card cp-form" method="post" action="/espace/<%= w.slug %>/invites">
-        <label>Nom de l'invité<input name="name" required placeholder="Ex : Tonton Paul" autocomplete="off"></label>
+        <label>Nom de l'invité (ou couple / famille)
+          <input name="name" required placeholder="Ex : M. & Mme Njoya" autocomplete="off">
+        </label>
         <div class="two">
           <label>WhatsApp<input name="phone" type="tel" inputmode="tel" placeholder="6XX XX XX XX"></label>
           <label>Places<input name="seats" type="number" inputmode="numeric" min="1" max="20" value="1"></label>
         </div>
-        <button class="cp-btn dark"><i class="fa-solid fa-plus"></i> Ajouter</button>
+        <div class="two-eq">
+          <label>Intimité avec les mariés
+            <select name="category">
+              <% Object.entries(GUEST_CATEGORIES).forEach(function([k, info]) { %>
+                <option value="<%= k %>"><%= info.short %></option>
+              <% }) %>
+            </select>
+          </label>
+          <label>Table attribuée
+            <select name="table_id">
+              <option value="auto">⚡ Auto (selon intimité)</option>
+              <option value="none">Sans table pour l'instant</option>
+              <% tables.forEach(function(t) { %>
+                <option value="<%= t.id %>" <%= t.free === 0 ? 'disabled' : '' %>>
+                  <%= t.name %> (<%= t.occupied %>/<%= t.capacity %>)
+                </option>
+              <% }) %>
+            </select>
+          </label>
+        </div>
+        <button class="cp-btn dark"><i class="fa-solid fa-plus"></i> Ajouter et placer l'invité</button>
       </form>
+
       <details class="cp-details">
         <summary><i class="fa-solid fa-file-import" style="color:var(--gold)"></i>&nbsp; Import rapide (plusieurs invités)</summary>
         <form class="cp-form" method="post" action="/espace/<%= w.slug %>/invites">
-          <label>Une ligne par invité : <code>Nom, téléphone, places</code>
-            <textarea name="bulk" rows="5" placeholder="Famille Ngo Bassa, 690112233, 4&#10;Maman Rose, 677889900, 2"></textarea>
+          <label>Cercle d'intimité de cette liste
+            <select name="default_category">
+              <% Object.entries(GUEST_CATEGORIES).forEach(function([k, info]) { %>
+                <option value="<%= k %>"><%= info.label %></option>
+              <% }) %>
+            </select>
           </label>
-          <button class="cp-btn dark"><i class="fa-solid fa-upload"></i> Importer la liste</button>
+          <label>Une ligne par invité : <code>Nom, téléphone, places</code>
+            <textarea name="bulk" rows="5" placeholder="Famille Ngo Bassa, 690112233, 2&#10;Maman Rose, 677889900, 1"></textarea>
+          </label>
+          <button class="cp-btn dark"><i class="fa-solid fa-upload"></i> Importer et placer automatiquement</button>
         </form>
       </details>
     </div>
@@ -130,7 +321,7 @@
 
   <!-- ===== Partager ===== -->
   <section class="cp-section" id="partager">
-    <div class="cp-section-head"><h2><i class="fa-solid fa-share-nodes"></i> Partager le faire-part</h2></div>
+    <div class="cp-section-head"><h2><i class="fa-solid fa-share-nodes"></i> Lien du faire-part</h2></div>
     <div class="cp-card">
       <div class="cp-link"><i class="fa-solid fa-link"></i><span><%= inviteUrl(w) %></span></div>
       <div class="cp-btn-row share">
@@ -138,7 +329,7 @@
         <button type="button" class="cp-btn" data-copy="<%= inviteUrl(w) %>"><i class="fa-regular fa-copy"></i> Copier</button>
         <a class="cp-btn" href="/i/<%= w.slug %>/qr.png?size=1000" download="qr-<%= w.slug %>.png"><i class="fa-solid fa-qrcode"></i> QR code</a>
       </div>
-      <p class="small muted" style="margin:10px 0 0"><i class="fa-regular fa-lightbulb" style="color:var(--gold)"></i> Pour un message personnalisé (« Cher Tonton Paul… ») et un suivi des réponses, ajoutez plutôt vos invités dans la liste.</p>
+      <p class="small muted" style="margin:10px 0 0"><i class="fa-solid fa-shield-halved" style="color:var(--gold)"></i> Astuce : envoyez les invitations depuis la liste <strong>Mes invités</strong> ci-dessus pour que chaque invité reçoive son lien nominatif avec sa table réservée.</p>
     </div>
   </section>
 
@@ -168,7 +359,7 @@
 
   <!-- ===== Jour J ===== -->
   <section class="cp-section">
-    <a class="cp-btn gold" href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-door-open"></i> Mode accueil du jour J (scan des pass)</a>
+    <a class="cp-btn gold" href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-door-open"></i> Mode accueil du jour J (scan QR &amp; tables)</a>
     <p class="small muted" style="text-align:center;margin:16px 0 0">Besoin d'une modification ?
       <a target="_blank" href="<%= waLink(businessWhatsapp, 'Bonjour, modification pour le faire-part de ' + coupleNames(w) + ' : ') %>">Écrivez-nous sur WhatsApp</a></p>
   </section>
@@ -176,8 +367,8 @@
 
 <nav class="cp-tabbar" aria-label="Navigation">
   <a href="#invites" class="main"><i class="fa-solid fa-users"></i>Invités</a>
+  <a href="#tables"><i class="fa-solid fa-chair"></i>Tables</a>
   <a href="#ajouter"><i class="fa-solid fa-user-plus"></i>Ajouter</a>
-  <a href="#partager"><i class="fa-solid fa-share-nodes"></i>Partager</a>
   <% if (w.cagnotte_enabled) { %><a href="#cagnotte"><i class="fa-solid fa-gift"></i>Cagnotte</a><% } %>
   <a href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-door-open"></i>Jour J</a>
 </nav>

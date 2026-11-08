@@ -6,7 +6,9 @@
 erDiagram
     LEADS ||--o| WEDDINGS : "converti en"
     WEDDINGS ||--o{ PHOTOS : "possede"
+    WEDDINGS ||--o{ WEDDING_TABLES : "definit"
     WEDDINGS ||--o{ GUESTS : "invite"
+    WEDDING_TABLES ||--o{ GUESTS : "accueille"
     WEDDINGS ||--o{ CONTRIBUTIONS : "recoit"
 
     LEADS {
@@ -62,11 +64,23 @@ erDiagram
         string om_number
         string om_name
         int payout_done
+        int max_guests "Quota maximum de places"
+        int strict_rsvp "1 = liste fermee stricte"
         string access_key "Clé secrète d'administration couple"
         int lead_id FK
         int views
         string created_at
         string updated_at
+    }
+
+    WEDDING_TABLES {
+        int id PK
+        int wedding_id FK
+        string name "Nom choisi par les maries"
+        int capacity "Nombre de chaises"
+        string category "Cercle d'intimite"
+        int position
+        string created_at
     }
 
     PHOTOS {
@@ -83,6 +97,10 @@ erDiagram
         string name
         string phone
         int seats "Nombre de places allouees"
+        string category "Cercle d'intimite"
+        int table_id FK "Table attribuee"
+        string table_name "Nom de la table"
+        string seat_numbers "Numeros de sieges (ex: 1-2)"
         string token UK "Token pour URL personnalisee et QR"
         string status "pending | yes | no"
         int attending_count "Nombre reel de personnes confirmees"

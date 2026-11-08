@@ -63,7 +63,9 @@
   <section class="section personal reveal">
     <p class="script big">Cher(e) <%= guest.name %>,</p>
     <p>Votre présence à nos côtés rendra ce jour encore plus beau.
-      <% if (guest.seats > 1) { %>Cette invitation est valable pour <strong><%= guest.seats %> personnes</strong>.<% } else { %>Cette invitation vous est personnellement adressée.<% } %></p>
+      <% if (guest.seats > 1) { %>Cette invitation est valable pour <strong><%= guest.seats %> personnes</strong>.<% } else { %>Cette invitation vous est personnellement adressée.<% } %>
+      <% if (guest.table_name) { %><br>🪑 Table réservée : <strong><%= guest.table_name %></strong><% if (guest.seat_numbers) { %> (Siège(s) <%= guest.seat_numbers %>)<% } %>.<% } %>
+    </p>
   </section>
   <% } %>
 
@@ -134,17 +136,22 @@
     <h2 class="section-title">Serez-vous des nôtres ?</h2>
     <div class="ornament">❦</div>
     <% if (w.rsvp_deadline) { %><p class="muted">Merci de répondre avant le <strong><%= fmtDate(w.rsvp_deadline, { weekday: undefined }) %></strong></p><% } %>
-    <% if (error === 'name') { %><p class="alert">Merci d'indiquer votre nom.</p><% } %>
+    <% if (error === 'name') { %><p class="alert">Merci d'indiquer votre nom ou votre numéro WhatsApp.</p><% } %>
+    <% if (error === 'not_on_list') { %><p class="alert"><i class="fa-solid fa-user-lock"></i> Cette réception se fait sur liste d'invitation nominative. Votre numéro ou nom n'a pas été trouvé dans la liste des places attribuées. Ouvrez le lien personnel reçu sur WhatsApp ou contactez directement les mariés ci-dessous.</p><% } %>
+    <% if (error === 'quota_full') { %><p class="alert"><i class="fa-solid fa-chair"></i> Toutes les places assises prévues pour la réception sont complètes. Contactez directement les mariés.</p><% } %>
     <% if (error === 'draft' || isDraft) { %><p class="alert">Les réponses seront ouvertes dès la publication du faire-part.</p><% } %>
     <% if (guest && guest.status !== 'pending') { %>
-      <p class="alert ok">Nous avons bien reçu votre réponse : <strong><%= guest.status === 'yes' ? 'présent(e) (' + guest.attending_count + ' pers.)' : 'absent(e)' %></strong>. Vous pouvez la modifier ci-dessous.
-        <% if (guest.status === 'yes') { %><br><a class="link" href="/i/<%= w.slug %>/pass/<%= guest.token %>">🎟️ Voir mon pass d'entrée</a><% } %></p>
+      <p class="alert ok">Nous avons bien reçu votre réponse : <strong><%= guest.status === 'yes' ? 'présent(e) (' + guest.attending_count + ' pers.)' : 'absent(e)' %></strong><% if (guest.status === 'yes' && guest.table_name) { %> · 🪑 <strong><%= guest.table_name %></strong><% if (guest.seat_numbers) { %> (Siège(s) <%= guest.seat_numbers %>)<% } %><% } %>. Vous pouvez la modifier ci-dessous.
+        <% if (guest.status === 'yes') { %><br><a class="link" href="/i/<%= w.slug %>/pass/<%= guest.token %>">🎟️ Voir mon pass d'entrée (Nom + Table)</a><% } %></p>
     <% } %>
     <% if (deadlinePassed && !guest) { %>
       <p class="alert">La date limite de réponse est passée. Contactez directement les mariés.</p>
     <% } else { %>
     <form method="post" action="/i/<%= w.slug %>/rsvp" class="card form">
       <% if (guest) { %><input type="hidden" name="token" value="<%= guest.token %>"><% } %>
+      <% if (!guest && w.strict_rsvp) { %>
+        <p class="muted" style="font-size:.86rem;margin:0 0 .8rem"><i class="fa-solid fa-shield-halved" style="color:var(--accent)"></i> Indiquez le <strong>numéro WhatsApp</strong> (ou le nom exact) enregistré par les mariés pour confirmer votre place et obtenir votre Pass QR avec votre table.</p>
+      <% } %>
       <label>Votre nom complet
         <input name="name" required maxlength="120" value="<%= guest ? guest.name : '' %>" <%= guest && guest.source === 'list' ? 'readonly' : '' %>>
       </label>

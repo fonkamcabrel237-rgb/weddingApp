@@ -4,6 +4,18 @@ Toutes les modifications notables apportées au projet **Ndolo Invitations** son
 
 ---
 
+## [1.3.0] - 2026-11-08
+### Ajouté
+* **Gestion complète des tables et places assises par intimité** (`wedding_tables` dans `src/db.js` et `src/weddings.js`) :
+  * Création des tables personnalisées par les mariés (nom choisi par les mariés, capacité en chaises, cercle d'intimité).
+  * Définition du **quota maximum d'invités** (`max_guests`) avec jauge en temps réel et protection contre le dépassement.
+  * Algorithme d'**auto-placement intelligent** (`autoAssignTables`) répartissant les invités par cercle d'intimité sans séparer les couples/familles, avec numérotation automatique des sièges (`#1-2`, `#3`...).
+  * Libération automatique des chaises lorsqu'un invité décline l'invitation (`status = 'no'`).
+* **Mode RSVP contrôlé par la BD des mariés (`strict_rsvp`)** : bloque les inscriptions sauvages hors-liste sur `/i/:slug/rsvp` et réserve le Pass QR aux invités enregistrés par les mariés.
+* **Billet Pass QR enrichi (`/i/:slug/pass/:token` et `/i/:slug/pass/:token/ticket.svg`)** : intègre directement le QR code, le **Nom de l'invité**, le **Nom de sa Table** et ses **Numéros de sièges** sur l'image téléchargeable et sur l'écran de scan Jour J des hôtesses (`views/couple/checkin.ejs` & `views/couple/accueil.ejs`).
+
+---
+
 ## [1.2.0] - 2026-11-08
 ### Ajouté
 * Feuille de style dédiée **Mobile-First** pour l'espace mariés (`public/css/couple.css`) conçue à partir d'un écran smartphone `360px` avec enrichissement progressif (`min-width: 640px` et `min-width: 960px`).

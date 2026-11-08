@@ -38,6 +38,7 @@ app.use((req, res, next) => {
     paymentMode: payments.mode(),
     path: req.path,
     flash: req.query.ok || null,
+    flashError: req.query.err || null,
   });
   next();
 });

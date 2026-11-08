@@ -39,12 +39,25 @@ CREATE TABLE IF NOT EXISTS weddings (
   cagnotte_enabled INTEGER DEFAULT 1, cagnotte_goal INTEGER DEFAULT 0, cagnotte_text TEXT,
   momo_number TEXT, momo_name TEXT, om_number TEXT, om_name TEXT,
   payout_done INTEGER DEFAULT 0,
+  max_guests INTEGER DEFAULT 200,
+  strict_rsvp INTEGER DEFAULT 1,
   access_key TEXT NOT NULL,
   lead_id INTEGER,
   views INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS wedding_tables (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wedding_id INTEGER NOT NULL REFERENCES weddings(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  capacity INTEGER DEFAULT 10,
+  category TEXT DEFAULT 'famille_mariee',
+  position INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_tables_wedding ON wedding_tables(wedding_id);
 
 CREATE TABLE IF NOT EXISTS photos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +70,10 @@ CREATE TABLE IF NOT EXISTS guests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   wedding_id INTEGER NOT NULL REFERENCES weddings(id) ON DELETE CASCADE,
   name TEXT NOT NULL, phone TEXT, seats INTEGER DEFAULT 1,
+  category TEXT DEFAULT 'famille_mariee',
+  table_id INTEGER REFERENCES wedding_tables(id) ON DELETE SET NULL,
+  table_name TEXT,
+  seat_numbers TEXT,
   token TEXT UNIQUE NOT NULL,
   status TEXT DEFAULT 'pending',         -- pending | yes | no
   attending_count INTEGER DEFAULT 0,
@@ -77,6 +94,18 @@ CREATE TABLE IF NOT EXISTS contributions (
 );
 CREATE INDEX IF NOT EXISTS idx_contrib_wedding ON contributions(wedding_id);
 `);
+
+// Migrations non-destructives pour les bases existantes
+function ensureColumn(table, col, def) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!cols.includes(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+}
+ensureColumn('weddings', 'max_guests', 'INTEGER DEFAULT 200');
+ensureColumn('weddings', 'strict_rsvp', 'INTEGER DEFAULT 1');
+ensureColumn('guests', 'category', "TEXT DEFAULT 'famille_mariee'");
+ensureColumn('guests', 'table_id', 'INTEGER REFERENCES wedding_tables(id) ON DELETE SET NULL');
+ensureColumn('guests', 'table_name', 'TEXT');
+ensureColumn('guests', 'seat_numbers', 'TEXT');
 
 // node:sqlite refuse `undefined` : on convertit en NULL.
 const clean = (p) => p.map((v) => (v === undefined ? null : typeof v === 'boolean' ? Number(v) : v));

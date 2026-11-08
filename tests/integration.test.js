@@ -14,6 +14,7 @@ const path = require('path');
 const { q } = require('../src/db');
 const utils = require('../src/utils');
 const payments = require('../src/payments');
+const { addGuest, addTable } = require('../src/weddings');
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -31,6 +32,7 @@ app.use((req, res, next) => {
     paymentMode: 'demo',
     path: req.path,
     flash: null,
+    flashError: null,
   });
   next();
 });
@@ -83,10 +85,35 @@ test('NIVEAU 2.1 — Consultation publique et cas d’erreur 404', async () => {
   assert.ok(notFound.body.includes('Invitation introuvable'), 'Doit afficher une page 404 propre');
 });
 
-test('NIVEAU 2.2 — Tunnel RSVP complet (Nom, Présence, Livre d\'or)', async () => {
-  // 1. Soumission RSVP présent
+test('NIVEAU 2.2 — Tunnel RSVP contrôlé par la BD des mariés & Pass QR avec Table', async () => {
+  const w = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
+  q.run('UPDATE weddings SET strict_rsvp = 1 WHERE id = ?', w.id);
+
+  // Créer une table personnalisée pour le test
+  const table = addTable(w.id, { name: 'Table Royale Wouri', capacity: 6, category: 'vip_marie' });
+
+  // 1. Tentative d'incruste d'une personne NON enregistrée par les mariés -> doit être bloquée
+  const strangerParams = new URLSearchParams({
+    name: 'Inconnu Incruste',
+    phone: '699999999',
+    attending: 'yes',
+    count: '2',
+  });
+  const blockedRes = await request('/i/demo/rsvp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: strangerParams.toString(),
+  });
+  assert.strictEqual(blockedRes.status, 302);
+  assert.ok(blockedRes.headers.get('location').includes('err=not_on_list'), 'Doit bloquer une personne hors liste des mariés');
+
+  // 2. Les mariés ajoutent leur invité dans la BD
+  const invited = addGuest(w.id, { name: "Jean Eto'o", phone: '657664546', seats: 2, category: 'vip_marie', table_id: table.id });
+
+  // 3. L'invité enregistré confirme sa présence
   const params = new URLSearchParams({
-    name: 'Jean Eto\'o',
+    token: invited.token,
+    name: "Jean Eto'o",
     phone: '657664546',
     attending: 'yes',
     count: '2',
@@ -99,25 +126,30 @@ test('NIVEAU 2.2 — Tunnel RSVP complet (Nom, Présence, Livre d\'or)', async (
     body: params.toString(),
   });
 
-  // Doit rediriger vers /i/demo/merci?g=TOKEN
   assert.strictEqual(rsvpRes.status, 302);
   const location = rsvpRes.headers.get('location');
   assert.ok(location.includes('/merci?g='), 'Doit rediriger vers la page de remerciement');
 
-  // Vérification en base avec paramètre préparé ?
-  const guest = q.get('SELECT * FROM guests WHERE name = ? ORDER BY id DESC LIMIT 1', "Jean Eto'o");
-  assert.ok(guest, 'L\'invité doit être enregistré en base');
+  const guest = q.get('SELECT * FROM guests WHERE id = ?', invited.id);
   assert.strictEqual(guest.status, 'yes');
   assert.strictEqual(guest.attending_count, 2);
+  assert.strictEqual(guest.table_name, 'Table Royale Wouri');
+  assert.ok(guest.seat_numbers, 'Doit attribuer des numéros de sièges');
 
-  // 2. Accès au Pass QR de cet invité
+  // 4. Accès au Pass QR et au billet SVG (Nom de l'invité + Nom de la Table)
   const passRes = await request(`/i/demo/pass/${guest.token}`);
   assert.strictEqual(passRes.status, 200);
-  assert.ok(passRes.body.includes('Pass d&#39;entrée') || passRes.body.includes('Pass d\'entrée') || passRes.body.includes('Pass'));
-  assert.ok(passRes.body.includes('Jean Eto&#39;o') || passRes.body.includes("Jean Eto'o"), 'Le nom doit être rendu dans le pass');
+  assert.ok(passRes.body.includes('Jean Eto&#39;o') || passRes.body.includes("Jean Eto'o"), 'Le nom de l\'invité doit être affiché sur le pass');
+  assert.ok(passRes.body.includes('Table Royale Wouri'), 'Le nom de la table doit être affiché sur le pass');
 
-  // Nettoyage de l'invité de test
+  const svgRes = await request(`/i/demo/pass/${guest.token}/ticket.svg`);
+  assert.strictEqual(svgRes.status, 200);
+  assert.ok(svgRes.body.includes("Jean Eto'o"), 'Le billet QR SVG doit contenir le nom de l\'invité');
+  assert.ok(svgRes.body.includes('TABLE ROYALE WOURI'), 'Le billet QR SVG doit contenir le nom de la table');
+
+  // Nettoyage
   q.run('DELETE FROM guests WHERE id = ?', guest.id);
+  q.run('DELETE FROM wedding_tables WHERE id = ?', table.id);
 });
 
 test('NIVEAU 2.3 — Tunnel Cagnotte MoMo / OM (Simulation Démo & Confirmation)', async () => {
@@ -216,7 +248,7 @@ test('NIVEAU 2.4 — Espace Mariés : Protection d’accès & Check-in QR le jou
     headers: { 'Cookie': cookieVal },
   });
   assert.strictEqual(viewPassAgain.status, 200);
-  assert.ok(viewPassAgain.body.includes('Déjà entré'), 'Doit alerter l\'accueil en cas de doublon/fraude');
+  assert.ok(viewPassAgain.body.includes('Pass déjà scanné') || viewPassAgain.body.includes('Déjà entré'), 'Doit alerter l\'accueil en cas de doublon/fraude');
 
   // Nettoyage
   q.run('DELETE FROM guests WHERE token = ?', token);

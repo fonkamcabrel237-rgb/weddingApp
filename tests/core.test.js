@@ -4,7 +4,10 @@ const test = require('node:test');
 
 const path = require('path');
 const U = require('../src/utils');
-const { createWedding, addGuest, importGuests, stats } = require('../src/weddings');
+const {
+  createWedding, addGuest, importGuests, stats,
+  addTable, assignGuestToTable, autoAssignTables, getTablesWithOccupancy, recomputeTableSeats,
+} = require('../src/weddings');
 const payments = require('../src/payments');
 const { q } = require('../src/db');
 
@@ -77,4 +80,43 @@ test('4. Sécurité des webhooks Notch Pay (Validation de signature)', () => {
   assert.strictEqual(payments.verifyWebhookSignature(rawBody, validSignature), true, 'Doit valider la bonne signature');
   assert.strictEqual(payments.verifyWebhookSignature(rawBody, invalidSignature), false, 'Doit rejeter une mauvaise signature');
   assert.strictEqual(payments.verifyWebhookSignature(rawBody, null), false, 'Doit rejeter une signature manquante');
+});
+
+test('5. Gestion des tables par intimité, placement auto et anti-surcharge', () => {
+  const w = createWedding({ bride: 'Nadine', groom: 'Samuel', slug: 'test-tables-wedding', max_guests: 20 });
+
+  // Les mariés créent leurs tables avec leurs noms et capacités
+  const tVip = addTable(w.id, { name: 'Table Baham VIP', capacity: 4, category: 'vip_mariee' });
+  const tAmis = addTable(w.id, { name: 'Table Kribi Amis', capacity: 4, category: 'amis' });
+
+  // Ajout d'un couple VIP de 2 places -> auto-placé sur Table Baham VIP (Sièges 1-2)
+  const g1 = addGuest(w.id, { name: 'M. & Mme Njoya', phone: '690001122', seats: 2, category: 'vip_mariee', table_id: 'auto' });
+  assert.strictEqual(g1.table_name, 'Table Baham VIP');
+  assert.strictEqual(g1.seat_numbers, '1-2');
+
+  // Ajout d'une famille VIP de 3 places -> dépasse la capacité restante (2 places libres sur 4) -> ne doit pas surcharger
+  const g2 = addGuest(w.id, { name: 'Famille Kamga', phone: '690003344', seats: 3, category: 'vip_mariee', table_id: 'auto' });
+  assert.strictEqual(g2.table_id, null, 'Ne doit pas surcharger une table qui n\'a que 2 places libres');
+
+  // Tentative de forcer manuellement g2 sur tVip -> doit retourner une erreur
+  const forced = assignGuestToTable(w.id, g2.id, tVip.id);
+  assert.strictEqual(forced.ok, false, 'Doit bloquer le dépassement de capacité de la table');
+
+  // Ajout d'un ami (2 places) sans table puis autoAssignTables
+  const g3 = addGuest(w.id, { name: 'Cédric & Laura', phone: '677112233', seats: 2, category: 'amis', table_id: 'none' });
+  const resAuto = autoAssignTables(w.id);
+  assert.strictEqual(resAuto.placed, 1);
+  const g3Updated = q.get('SELECT * FROM guests WHERE id = ?', g3.id);
+  assert.strictEqual(g3Updated.table_name, 'Table Kribi Amis');
+  assert.strictEqual(g3Updated.seat_numbers, '1-2');
+
+  // Si M. & Mme Njoya déclinent (status = 'no'), leurs 2 places sur Table Baham VIP se libèrent
+  q.run("UPDATE guests SET status = 'no', attending_count = 0 WHERE id = ?", g1.id);
+  recomputeTableSeats(tVip.id);
+  const tablesAfter = getTablesWithOccupancy(w.id);
+  const vipAfter = tablesAfter.find((t) => t.id === tVip.id);
+  assert.strictEqual(vipAfter.occupied, 0);
+  assert.strictEqual(vipAfter.free, 4);
+
+  q.run('DELETE FROM weddings WHERE id = ?', w.id);
 });

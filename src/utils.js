@@ -26,6 +26,17 @@ const THEMES = {
   emeraude: 'Émeraude — vert & or',
 };
 
+const GUEST_CATEGORIES = {
+  honneur: { label: "Table d'Honneur / Cortège", short: 'Honneur', icon: 'fa-crown' },
+  vip_mariee: { label: 'VIP & Parents proches (Mariée)', short: 'VIP Mariée', icon: 'fa-star' },
+  vip_marie: { label: 'VIP & Parents proches (Marié)', short: 'VIP Marié', icon: 'fa-star' },
+  famille_mariee: { label: 'Famille élargie (Mariée)', short: 'Famille Mariée', icon: 'fa-people-roof' },
+  famille_marie: { label: 'Famille élargie (Marié)', short: 'Famille Marié', icon: 'fa-people-roof' },
+  amis: { label: 'Amis proches des mariés', short: 'Amis', icon: 'fa-champagne-glasses' },
+  collegues: { label: 'Collègues & Relations pro', short: 'Collègues', icon: 'fa-briefcase' },
+  association: { label: 'Réunion / Tontine / Église', short: 'Réunion / Église', icon: 'fa-users-rectangle' },
+};
+
 function slugify(str) {
   return String(str || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -102,8 +113,11 @@ function inviteMessage(w, guest) {
   const hello = guest ? `Bonjour ${guest.name} 🌸` : 'Bonjour 🌸';
   const when = w.event_date ? ` le ${fmtDate(w.event_date)}` : '';
   const where = w.city ? ` à ${w.city}` : '';
-  return `${hello}\n\n${coupleNames(w)} ont la joie de vous inviter à ${eventLabel(w)}${when}${where}. 💍\n\n` +
-    `Découvrez votre faire-part, l'itinéraire et confirmez votre présence ici 👉 ${inviteUrl(w, guest)}`;
+  const seatInfo = guest
+    ? `\n🪑 Réservation : ${guest.seats} place(s)${guest.table_name ? ` — ${guest.table_name}` : ''}.`
+    : '';
+  return `${hello}\n\n${coupleNames(w)} ont la joie de vous inviter à ${eventLabel(w)}${when}${where}. 💍${seatInfo}\n\n` +
+    `Découvrez votre faire-part, l'itinéraire et confirmez votre présence pour obtenir votre Pass QR ici 👉 ${inviteUrl(w, guest)}`;
 }
 
 function reminderMessage(w, guest, kind) {
@@ -146,7 +160,7 @@ function csvEscape(v) {
 }
 
 module.exports = {
-  TZ, BASE_URL, PLANS, THEMES, slugify, token, normalizePhone, prettyPhone, waLink, parseLocal,
+  TZ, BASE_URL, PLANS, THEMES, GUEST_CATEGORIES, slugify, token, normalizePhone, prettyPhone, waLink, parseLocal,
   fmtDate, fmtTime, fmtMoney, coupleNames, eventLabel, inviteUrl, inviteMessage, reminderMessage,
   parseProgram, mapsEmbed, mapsDirections, notify, csvEscape,
 };
