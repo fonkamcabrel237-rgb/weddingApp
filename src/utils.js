@@ -110,25 +110,39 @@ function inviteUrl(w, guest) {
 }
 
 function inviteMessage(w, guest) {
-  const hello = guest ? `Bonjour ${guest.name} 🌸` : 'Bonjour 🌸';
-  const when = w.event_date ? ` le ${fmtDate(w.event_date)}` : '';
-  const where = w.city ? ` à ${w.city}` : '';
-  const seatInfo = guest
-    ? `\n🪑 Réservation : ${guest.seats} place(s)${guest.table_name ? ` — ${guest.table_name}` : ''}.`
-    : '';
-  return `${hello}\n\n${coupleNames(w)} ont la joie de vous inviter à ${eventLabel(w)}${when}${where}. 💍${seatInfo}\n\n` +
-    `Découvrez votre faire-part, l'itinéraire et confirmez votre présence pour obtenir votre Pass QR ici 👉 ${inviteUrl(w, guest)}`;
+  const hello = guest ? `Bonjour *${guest.name}*,` : 'Bonjour,';
+  const when = w.event_date ? `, qui aura lieu le *${fmtDate(w.event_date)}*` : '';
+  const where = w.city ? ` à *${w.city}*` : '';
+  const details = [];
+  if (guest) {
+    const n = Number(guest.seats) || 1;
+    details.push(`• Places réservées : *${n} ${n > 1 ? 'personnes' : 'personne'}*`);
+    if (guest.table_name) {
+      details.push(`• Table attribuée : *${guest.table_name}*${guest.seat_numbers ? ` (Siège${guest.seat_numbers.includes('-') ? 's' : ''} ${guest.seat_numbers})` : ''}`);
+    }
+  }
+  const reservationBlock = details.length ? `\n\n${details.join('\n')}` : '';
+  return `${hello}\n\nNous avons l'immense joie de vous convier à ${eventLabel(w)}${when}${where}.${reservationBlock}\n\n` +
+    `Ouvrez votre faire-part personnel pour découvrir le programme, l'itinéraire GPS et confirmer votre présence afin d'obtenir votre Pass d'entrée :\n${inviteUrl(w, guest)}\n\n` +
+    `Avec toute notre affection,\n*${coupleNames(w)}*`;
 }
 
 function reminderMessage(w, guest, kind) {
-  const name = guest ? guest.name : '';
+  const hello = guest ? `Bonjour *${guest.name}*,` : 'Bonjour,';
+  const place = [w.venue_name, w.city].filter(Boolean).join(' — ');
+  const tableLine = guest && guest.table_name
+    ? `\n• Votre table : *${guest.table_name}*${guest.seat_numbers ? ` (Siège${guest.seat_numbers.includes('-') ? 's' : ''} ${guest.seat_numbers})` : ''}`
+    : '';
   if (kind === 'j1') {
-    return `Bonjour ${name} ✨\nC'est demain ! ${coupleNames(w)} ont hâte de vous voir.\n📍 ${w.venue_name || ''} ${w.city ? '— ' + w.city : ''}\n🗺️ Itinéraire et programme : ${inviteUrl(w, guest)}`;
+    return `${hello}\n\nLe grand jour, c'est demain ! Nous avons hâte de vous accueillir${place ? ` (${place})` : ''}.${tableLine}\n\n` +
+      `Retrouvez l'itinéraire GPS et votre Pass QR à présenter à l'entrée :\n${inviteUrl(w, guest)}\n\nÀ demain,\n*${coupleNames(w)}*`;
   }
   if (kind === 'pending') {
-    return `Bonjour ${name} 🙏\n${coupleNames(w)} n'ont pas encore reçu votre réponse pour ${eventLabel(w)}.\nMerci de confirmer en 10 secondes ici 👉 ${inviteUrl(w, guest)}`;
+    return `${hello}\n\nAfin de finaliser notre plan de table pour ${eventLabel(w)}, nous aimerions savoir si vous pourrez être des nôtres.${tableLine}\n\n` +
+      `Merci de confirmer votre présence en quelques secondes via votre lien personnel :\n${inviteUrl(w, guest)}\n\nÀ très vite,\n*${coupleNames(w)}*`;
   }
-  return `Bonjour ${name} 💐\nPlus qu'une semaine avant le grand jour de ${coupleNames(w)} (${fmtDate(w.event_date)}).\nProgramme, plan d'accès et cagnotte : ${inviteUrl(w, guest)}`;
+  return `${hello}\n\nPlus qu'une semaine avant ${eventLabel(w)}${w.event_date ? ` (${fmtDate(w.event_date)})` : ''} ! Nous avons hâte de partager ce moment avec vous.${tableLine}\n\n` +
+    `Programme, plan d'accès GPS et Pass d'entrée :\n${inviteUrl(w, guest)}\n\nAffectueusement,\n*${coupleNames(w)}*`;
 }
 
 function parseProgram(w) {

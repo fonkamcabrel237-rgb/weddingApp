@@ -129,10 +129,9 @@
           <% if (g.message) { %><p class="g-msg">« <%= g.message %> »</p><% } %>
           <div class="g-actions">
             <a class="cp-btn wa wa-send" data-id="<%= g.id %>" target="_blank" rel="noopener" href="<%= waFor(g) %>"><i class="fa-brands fa-whatsapp"></i> <%= g.invited_at && mode === 'invite' ? 'Renvoyer' : 'Envoyer' %></a>
+            <button type="button" class="cp-btn sq" data-copy="<%= msgFor(g) %>" title="Copier le message d'invitation" aria-label="Copier le message"><i class="fa-regular fa-copy"></i></button>
             <% if (g.status === 'yes') { %>
               <a class="cp-btn sq" target="_blank" href="/i/<%= w.slug %>/pass/<%= g.token %>" title="Voir le Pass QR (Nom + Table)" aria-label="Pass d'entrée"><i class="fa-solid fa-qrcode"></i></a>
-            <% } else { %>
-              <span></span>
             <% } %>
             <form method="post" action="/espace/<%= w.slug %>/invites/<%= g.id %>/delete" onsubmit="return confirm('Supprimer <%= g.name.replace(/'/g, '') %> ?')">
               <button class="cp-btn sq del" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>

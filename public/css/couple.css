@@ -98,10 +98,11 @@ body.couple { background: var(--bg); padding-bottom: calc(76px + env(safe-area-i
 .g-msg { margin: 10px 0 0; padding: 8px 10px; background: var(--bg); border-left: 3px solid var(--gold);
   border-radius: 0 10px 10px 0; font-size: .84rem; font-style: italic; color: var(--ink);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.g-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-top: 10px; }
+.g-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .g-actions .cp-btn { min-height: 42px; }
-.g-actions .sq { width: 44px; padding: 0; }
-.g-actions form { margin: 0; }
+.g-actions .wa-send { flex: 1; }
+.g-actions .sq { flex: none; width: 42px; padding: 0; }
+.g-actions form { margin: 0; flex: none; }
 .g-actions .del { color: var(--red); }
 .cp-empty { text-align: center; padding: 26px 14px; color: var(--muted); font-size: .9rem; }
 .cp-empty i { display: block; font-size: 1.8rem; color: var(--gold); margin-bottom: 8px; }

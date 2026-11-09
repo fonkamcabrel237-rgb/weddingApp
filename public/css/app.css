@@ -157,16 +157,24 @@ form.inline { display:inline; }
 .hero-l .container { display:grid; grid-template-columns: 1.15fr .85fr; gap: 3.2rem; align-items:center; }
 @media (max-width: 860px) { .hero-l .container { grid-template-columns: 1fr; gap:2.5rem; text-align:center; } }
 
-/* Titre du hero en 3 lignes maximum, équilibré et percutant */
+/* Titre du hero en gras et en 3 lignes strictes (mobile & PC) */
 .hero-title {
-  font-size: clamp(2.2rem, 4.4vw, 3.4rem);
-  line-height: 1.15;
-  margin: 0.6rem 0 1rem;
-  letter-spacing: -0.015em;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(2.15rem, 6vw, 3.5rem);
+  line-height: 1.12;
+  margin: 0.65rem 0 1rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
   max-width: 650px;
+}
+@media (max-width: 860px) {
+  .hero-title { margin-left: auto; margin-right: auto; }
 }
 .hero-title span.line {
   display: block;
+  white-space: nowrap;
+  font-weight: 700;
 }
 .hero-title em { 
   font-style: normal; 
@@ -177,6 +185,28 @@ form.inline { display:inline; }
 }
 .hero-l p.lead { font-size: 1.12rem; color: var(--muted); max-width: 540px; margin: 0 0 1.5rem; }
 @media (max-width: 860px) { .hero-l p.lead { margin-left: auto; margin-right: auto; } }
+
+.hero-cta {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+@media (max-width: 860px) {
+  .hero-cta {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 300px;
+    margin: 1.35rem auto 0;
+    gap: 0.65rem;
+  }
+  .hero-cta .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.88rem 1.2rem;
+  }
+}
 
 /* Smartphone mockup flottant */
 .phone { 
