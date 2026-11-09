@@ -3,7 +3,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { q } = require('../db');
 const U = require('../utils');
-const { upload, saveImage, deleteImage } = require('../uploads');
+const { upload, uploadAudio, saveImage, saveAudio, resolveMusicUrl, deleteImage } = require('../uploads');
 const { createWedding, stats } = require('../weddings');
 const { requireAdmin, cookieOpts } = require('../auth');
 
@@ -61,11 +61,24 @@ router.post('/leads/:id/status', (req, res) => {
 // ---------- Faire-part ----------
 router.get('/mariages/new', (req, res) => res.render('admin/wedding-form', { w: null, photos: [], program: [] }));
 
-router.post('/mariages', (req, res) => {
-  if (!req.body.bride || !req.body.groom) return res.redirect('/admin/mariages/new');
-  const w = createWedding({ ...req.body, program: cleanProgram(req.body.program) });
-  applyUpdate(w.id, req.body);
-  res.redirect(`/admin/mariages/${w.id}?ok=Faire-part%20cr%C3%A9%C3%A9`);
+router.post('/mariages', async (req, res, next) => {
+  try {
+    if (!req.body.bride || !req.body.groom) return res.redirect('/admin/mariages/new');
+    req.body.music_url = await resolveMusicUrl(req.body.music_url);
+    const w = createWedding({ ...req.body, program: cleanProgram(req.body.program) });
+    applyUpdate(w.id, req.body);
+    res.redirect(`/admin/mariages/${w.id}?ok=Faire-part%20cr%C3%A9%C3%A9`);
+  } catch (e) { next(e); }
+});
+
+// Upload direct d'un fichier audio (.mp3, .m4a, .wav, .ogg) depuis l'ordinateur ou le téléphone
+router.post('/upload-audio', uploadAudio.single('audio'), (req, res) => {
+  if (!req.file) return res.status(400).json({ ok: false, error: 'Aucun fichier audio valide reçu.' });
+  const url = saveAudio(req.file);
+  if (req.body.wedding_id) {
+    q.run('UPDATE weddings SET music_url = ? WHERE id = ?', url, req.body.wedding_id);
+  }
+  res.json({ ok: true, url });
 });
 
 router.param('id', (req, res, next, id) => {
@@ -83,9 +96,12 @@ router.get('/mariages/:id', (req, res) => {
   });
 });
 
-router.post('/mariages/:id', (req, res) => {
-  applyUpdate(req.w.id, req.body);
-  res.redirect(`/admin/mariages/${req.w.id}?ok=Enregistr%C3%A9`);
+router.post('/mariages/:id', async (req, res, next) => {
+  try {
+    req.body.music_url = await resolveMusicUrl(req.body.music_url);
+    applyUpdate(req.w.id, req.body);
+    res.redirect(`/admin/mariages/${req.w.id}?ok=Enregistr%C3%A9`);
+  } catch (e) { next(e); }
 });
 
 router.post('/mariages/:id/action', (req, res) => {

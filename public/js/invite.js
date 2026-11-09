@@ -1,22 +1,64 @@
 (function () {
-  // Enveloppe : ouverte une seule fois par session
+  // Enveloppe & Musique : ouverture et lancement automatique garanti
   var env = document.getElementById('envelope');
   var music = document.getElementById('music');
   var musicBtn = document.getElementById('musicBtn');
-  var key = 'env:' + location.pathname;
+  var userPaused = false;
+  var key = 'env:' + location.pathname + ':' + (music ? music.getAttribute('src') : '');
+
+  function playMusic() {
+    if (!music || userPaused || !music.paused) return;
+    var p = music.play();
+    if (p && typeof p.then === 'function') {
+      p.then(function () {
+        if (musicBtn) musicBtn.classList.add('playing');
+      }).catch(function () {});
+    } else if (musicBtn) {
+      musicBtn.classList.add('playing');
+    }
+  }
+
+  // Si l'autoplay initial a été différé par le navigateur, lancer au 1er clic/toucher
+  function unlockAudioOnGesture() {
+    if (!music || userPaused) return;
+    playMusic();
+    if (!music.paused) {
+      ['click', 'touchstart', 'keydown'].forEach(function (ev) {
+        document.removeEventListener(ev, unlockAudioOnGesture);
+      });
+    }
+  }
+
   if (env) {
-    if (sessionStorage.getItem(key) || location.hash) { env.classList.add('open'); }
-    else { document.body.classList.add('locked'); }
+    if (sessionStorage.getItem(key) || location.hash) {
+      env.classList.add('open');
+      if (music) {
+        playMusic();
+        ['click', 'touchstart', 'keydown'].forEach(function (ev) {
+          document.addEventListener(ev, unlockAudioOnGesture, { passive: true });
+        });
+      }
+    } else {
+      document.body.classList.add('locked');
+    }
     document.getElementById('openEnvelope').addEventListener('click', function () {
       env.classList.add('open');
       document.body.classList.remove('locked');
       sessionStorage.setItem(key, '1');
-      if (music) { music.play().then(function () { musicBtn.classList.add('playing'); }).catch(function () {}); }
+      playMusic();
     });
   }
   if (musicBtn && music) {
-    musicBtn.addEventListener('click', function () {
-      if (music.paused) { music.play(); musicBtn.classList.add('playing'); } else { music.pause(); musicBtn.classList.remove('playing'); }
+    musicBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (music.paused) {
+        userPaused = false;
+        playMusic();
+      } else {
+        userPaused = true;
+        music.pause();
+        musicBtn.classList.remove('playing');
+      }
     });
   }
 

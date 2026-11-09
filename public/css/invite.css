@@ -68,7 +68,7 @@ body.locked, html:has(body.locked) { overflow:hidden; }
 .hero:not([style]) .countdown div { border-color: var(--line); background: var(--card); }
 .countdown b { display:block; font: 600 1.55rem 'Cormorant Garamond', serif; }
 .countdown span { font-size:.64rem; text-transform: uppercase; letter-spacing: .08em; opacity:.85; }
-.music-btn { position:absolute; top:1rem; right:1rem; width:44px; height:44px; border-radius:50%; border:1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.3); color:#fff; font-size:1.2rem; cursor:pointer; z-index:2; }
+.music-btn { position:fixed; top:1rem; right:1rem; width:44px; height:44px; border-radius:50%; border:1px solid var(--accent); background: rgba(15,13,10,.65); backdrop-filter: blur(8px); color: var(--accent2); font-size:1.2rem; cursor:pointer; z-index:45; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
 .music-btn.playing { animation: spin 4s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

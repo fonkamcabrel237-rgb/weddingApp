@@ -85,7 +85,16 @@
         <label>Thème visuel
           <select name="theme" id="themeSelect"><% Object.entries(THEMES).forEach(function([k, t]) { %><option value="<%= k %>" <%= v('theme', 'royal') === k ? 'selected' : '' %>><%= t %></option><% }) %></select>
         </label>
-        <label>Musique de fond (.mp3 URL)<input name="music_url" value="<%= v('music_url') %>" placeholder="https://…/musique.mp3"></label>
+        <label>Musique de fond (Fichier MP3 ou lien)
+          <div style="display:flex;gap:6px;align-items:center">
+            <input name="music_url" id="musicUrlInput" value="<%= v('music_url') %>" placeholder="/uploads/musique.mp3 ou lien Epidemic Sound / MP3" style="flex:1">
+            <button type="button" class="btn btn-outline btn-sm" id="uploadAudioBtn" title="Importer un fichier MP3/Audio depuis l'appareil" style="white-space:nowrap;padding:.55rem .85rem">
+              <i class="fa-solid fa-file-audio"></i> Fichier MP3
+            </button>
+            <input type="file" id="audioFileInput" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg" hidden>
+          </div>
+          <audio id="adminAudioPreview" controls preload="metadata" src="<%= v('music_url') %>" style="width:100%;height:34px;margin-top:6px;display:<%= v('music_url') ? 'block' : 'none' %>"></audio>
+        </label>
       </div>
 
       <!-- Configurateur de Palette Sur-Mesure (affiché quand Thème = custom) -->
@@ -290,6 +299,59 @@
       });
     });
     if (prev) updatePreview();
+
+    // Upload direct d'un fichier audio (.mp3, .m4a, .wav, .ogg) + lecteur d'aperçu
+    var audioBtn = document.getElementById('uploadAudioBtn');
+    var audioFile = document.getElementById('audioFileInput');
+    var musicInput = document.getElementById('musicUrlInput');
+    var audioPrev = document.getElementById('adminAudioPreview');
+    var weddingId = <%- JSON.stringify(w ? w.id : null) %>;
+
+    if (musicInput && audioPrev) {
+      musicInput.addEventListener('input', function () {
+        var val = musicInput.value.trim();
+        if (val) {
+          audioPrev.src = val;
+          audioPrev.style.display = 'block';
+        } else {
+          audioPrev.pause();
+          audioPrev.removeAttribute('src');
+          audioPrev.style.display = 'none';
+        }
+      });
+    }
+
+    if (audioBtn && audioFile && musicInput) {
+      audioBtn.addEventListener('click', function () { audioFile.click(); });
+      audioFile.addEventListener('change', function () {
+        if (!audioFile.files || !audioFile.files[0]) return;
+        var fd = new FormData();
+        fd.append('audio', audioFile.files[0]);
+        if (weddingId) fd.append('wedding_id', weddingId);
+        var origHtml = audioBtn.innerHTML;
+        audioBtn.disabled = true;
+        audioBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Envoi…';
+        fetch('/admin/upload-audio', { method: 'POST', body: fd, credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok && data.url) {
+              musicInput.value = data.url;
+              if (audioPrev) {
+                audioPrev.src = data.url;
+                audioPrev.style.display = 'block';
+              }
+            } else {
+              alert((data && data.error) || 'Erreur lors de l\'envoi du fichier audio.');
+            }
+          })
+          .catch(function () { alert('Erreur réseau lors de l\'envoi du fichier audio.'); })
+          .finally(function () {
+            audioBtn.disabled = false;
+            audioBtn.innerHTML = origHtml;
+            audioFile.value = '';
+          });
+      });
+    }
   })();
 </script>
 <script src="/static/js/seamless.js?v=8.0" defer></script>

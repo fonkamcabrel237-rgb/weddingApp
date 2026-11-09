@@ -55,6 +55,17 @@
       var curQuick = document.querySelector('.admin-quick-actions');
       if (newQuick && curQuick) curQuick.innerHTML = newQuick.innerHTML;
 
+      var newMusic = doc.getElementById('musicUrlInput');
+      var curMusic = document.getElementById('musicUrlInput');
+      var curAudio = document.getElementById('adminAudioPreview');
+      if (newMusic && curMusic && newMusic.value !== curMusic.value) {
+        curMusic.value = newMusic.value;
+        if (curAudio && newMusic.value) {
+          curAudio.src = newMusic.value;
+          curAudio.style.display = 'block';
+        }
+      }
+
       if (sourceForm && sourceForm.closest('#photos')) {
         var newPhotos = doc.getElementById('photos');
         var curPhotos = document.getElementById('photos');
