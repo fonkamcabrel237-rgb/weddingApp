@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "start": "node --no-warnings server.js",
-    "dev": "node --no-warnings --watch server.js",
+    "dev": "node --no-warnings --watch-path=./src --watch-path=./views --watch-path=./public --watch-path=./server.js server.js",
     "seed": "node --no-warnings scripts/seed.js",
     "test": "node --no-warnings --test tests/core.test.js tests/integration.test.js"
   },
