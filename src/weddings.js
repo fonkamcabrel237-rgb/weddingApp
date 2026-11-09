@@ -1,6 +1,6 @@
 // Logique métier partagée : création de faire-part, invités, tables, placement automatique, cagnotte.
 const { q } = require('./db');
-const { slugify, token, normalizePhone, PLANS, GUEST_CATEGORIES } = require('./utils');
+const { slugify, token, normalizePhone, sanitizeHex, PLANS, GUEST_CATEGORIES } = require('./utils');
 
 function uniqueSlug(base) {
   let slug = slugify(base) || 'mariage';
@@ -15,14 +15,15 @@ function createWedding(data) {
   const maxGuests = Math.max(10, Math.min(5000, parseInt(data.max_guests, 10) || 200));
   const r = q.run(
     `INSERT INTO weddings (slug, status, plan, price, partner, event_type, bride, groom, headline, story,
-      event_date, venue_name, venue_address, city, maps_query, program, theme, couple_phone, couple_email,
+      event_date, venue_name, venue_address, city, maps_query, program, theme, custom_bg, custom_accent, couple_phone, couple_email,
       momo_number, om_number, max_guests, strict_rsvp, access_key, lead_id)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     slug, data.status || 'draft', plan, Number(data.price) || PLANS[plan].price, data.partner || null,
     data.event_type || 'mariage', data.bride.trim(), data.groom.trim(),
     data.headline || 'Nous nous disons OUI !', data.story || null,
     data.event_date || null, data.venue_name || null, data.venue_address || null, data.city || null,
     data.maps_query || null, JSON.stringify(data.program || []), data.theme || 'royal',
+    sanitizeHex(data.custom_bg, '#faf6f0'), sanitizeHex(data.custom_accent, '#b8913f'),
     normalizePhone(data.couple_phone) || null, data.couple_email || null,
     normalizePhone(data.momo_number) || null, normalizePhone(data.om_number) || null,
     maxGuests, data.strict_rsvp === undefined ? 1 : Number(Boolean(data.strict_rsvp)),

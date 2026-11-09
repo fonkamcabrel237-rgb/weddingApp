@@ -4,6 +4,19 @@ Toutes les modifications notables apportées au projet **Ndolo Invitations** son
 
 ---
 
+## [1.4.0] - 2026-11-09
+### Ajouté
+* **Moteur de personnalisation de Thème Visuel Sur-Mesure (`customThemeStyle`)** :
+  * Sélection de 2 couleurs (`custom_accent` et `custom_bg`) ou de **6 palettes mariage tendances en 1 clic** (*Terracotta & Ivoire*, *Bordeaux & Or*, *Vert Sauge & Crème*, *Bleu Roi & Blanc*, *Or Rose & Champagne*, *Bleu Nuit & Or Impérial*).
+  * Calcul automatique par luminance WCAG des 9 variables CSS (`--bg`, `--bg2`, `--card`, `--text`, `--muted`, `--accent`, `--accent2`, `--line`, `--btn-text`) garantissant une lisibilité parfaite.
+  * Aperçu en direct dans l'éditeur Admin (`views/admin/wedding-form.ejs`) et sélecteur intégré au formulaire de commande (`views/landing.ejs`).
+
+### Modifié
+* **Typographie et impact visuel du Hero (`views/landing.ejs`, `public/css/app.css`)** : passage en *Playfair Display ExtraBold (800)* grand format avec surlignage doré contrasté sur la ligne centrale.
+* **Correction responsive des boutons d'enregistrement Admin (`.form-floating-bar`)** et des marges latérales mobiles sur `/admin`.
+
+---
+
 ## [1.3.0] - 2026-11-08
 ### Ajouté
 * **Gestion complète des tables et places assises par intimité** (`wedding_tables` dans `src/db.js` et `src/weddings.js`) :

@@ -34,6 +34,8 @@ router.post('/commande', upload.array('photos', 30), async (req, res, next) => {
       maps_query: b.venue_address ? `${b.venue_name || ''} ${b.venue_address} ${b.city || ''}`.trim() : null,
       couple_phone: b.phone, couple_email: b.email, lead_id: leadId,
       theme: U.THEMES[b.theme] ? b.theme : 'royal',
+      custom_bg: b.custom_bg,
+      custom_accent: b.custom_accent,
     });
     q.run('UPDATE leads SET wedding_id = ? WHERE id = ?', w.id, leadId);
 

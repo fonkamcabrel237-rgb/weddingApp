@@ -120,3 +120,16 @@ test('5. Gestion des tables par intimité, placement auto et anti-surcharge', ()
 
   q.run('DELETE FROM weddings WHERE id = ?', w.id);
 });
+
+test('6. Moteur colorimétrique de thème sur-mesure (contraste automatique)', () => {
+  // Fond clair (Terracotta & Ivoire) -> texte sombre automatique
+  const lightStyle = U.customThemeStyle({ theme: 'custom', custom_bg: '#fdf8f4', custom_accent: '#c85a32' });
+  assert.ok(lightStyle.includes('--bg:#fdf8f4'), 'Doit injecter le fond clair choisi');
+  assert.ok(lightStyle.includes('--accent:#c85a32'), 'Doit injecter la couleur d\'accent choisie');
+  assert.ok(lightStyle.includes('--text:#221b16'), 'Doit choisir automatiquement un texte sombre sur fond clair');
+
+  // Fond sombre (Bleu Nuit & Or) -> texte clair automatique
+  const darkStyle = U.customThemeStyle({ theme: 'custom', custom_bg: '#0c1629', custom_accent: '#d4af37' });
+  assert.ok(darkStyle.includes('--bg:#0c1629'), 'Doit injecter le fond sombre choisi');
+  assert.ok(darkStyle.includes('--text:#f5f0e6'), 'Doit choisir automatiquement un texte ivoire sur fond sombre');
+});

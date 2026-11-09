@@ -83,9 +83,53 @@
       <div class="grid g3">
         <label>Hashtag officiel<input name="hashtag" value="<%= v('hashtag') %>" placeholder="GraceJunior2026"></label>
         <label>Thème visuel
-          <select name="theme"><% Object.entries(THEMES).forEach(function([k, t]) { %><option value="<%= k %>" <%= v('theme', 'royal') === k ? 'selected' : '' %>><%= t %></option><% }) %></select>
+          <select name="theme" id="themeSelect"><% Object.entries(THEMES).forEach(function([k, t]) { %><option value="<%= k %>" <%= v('theme', 'royal') === k ? 'selected' : '' %>><%= t %></option><% }) %></select>
         </label>
         <label>Musique de fond (.mp3 URL)<input name="music_url" value="<%= v('music_url') %>" placeholder="https://…/musique.mp3"></label>
+      </div>
+
+      <!-- Configurateur de Palette Sur-Mesure (affiché quand Thème = custom) -->
+      <div id="customThemeBox" class="custom-theme-box" style="display:<%= v('theme', 'royal') === 'custom' ? 'block' : 'none' %>">
+        <div class="ct-head">
+          <strong><i class="fa-solid fa-palette" style="color:var(--gold)"></i> Palette sur-mesure des mariés</strong>
+          <span class="small muted">Choisissez une palette prédéfinie ou entrez les 2 couleurs du mariage : le système calcule automatiquement les dégradés et le contraste.</span>
+        </div>
+
+        <div class="ct-presets">
+          <% CUSTOM_PALETTES.forEach(function(pal) { %>
+            <button type="button" class="ct-preset-chip" data-bg="<%= pal.bg %>" data-accent="<%= pal.accent %>">
+              <span class="ct-dots">
+                <i style="background:<%= pal.bg %>"></i>
+                <i style="background:<%= pal.accent %>"></i>
+              </span>
+              <span><%= pal.name %></span>
+            </button>
+          <% }) %>
+        </div>
+
+        <div class="ct-pickers">
+          <label>Couleur Principale / Accent (Boutons, Sceau, Ornement)
+            <div class="ct-color-row">
+              <input type="color" id="pickerAccent" value="<%= v('custom_accent', '#b8913f') %>">
+              <input type="text" name="custom_accent" id="hexAccent" value="<%= v('custom_accent', '#b8913f') %>" maxlength="7" placeholder="#b8913f">
+            </div>
+          </label>
+          <label>Couleur de Fond / Ambiance (Fond de l'invitation)
+            <div class="ct-color-row">
+              <input type="color" id="pickerBg" value="<%= v('custom_bg', '#faf6f0') %>">
+              <input type="text" name="custom_bg" id="hexBg" value="<%= v('custom_bg', '#faf6f0') %>" maxlength="7" placeholder="#faf6f0">
+            </div>
+          </label>
+        </div>
+
+        <div class="ct-preview" id="ctPreview">
+          <div class="ct-preview-seal" id="ctPreviewSeal"><%= (v('bride', 'G').charAt(0) + '&' + v('groom', 'J').charAt(0)).toUpperCase() %></div>
+          <div class="ct-preview-info">
+            <div class="ct-preview-title" id="ctPreviewTitle"><%= v('bride', 'Grâce') %> &amp; <%= v('groom', 'Junior') %></div>
+            <div class="ct-preview-sub" id="ctPreviewSub">Aperçu automatique du contraste et des boutons</div>
+          </div>
+          <span class="ct-preview-btn" id="ctPreviewBtn">Confirmer</span>
+        </div>
       </div>
     </div>
 
@@ -157,8 +201,8 @@
 
     <!-- Boutons d'action flottants sticky -->
     <div class="form-floating-bar">
-      <a class="btn btn-outline" href="/admin">Annuler</a>
-      <button class="btn btn-gold"><i class="fa-solid fa-floppy-disk"></i> Enregistrer les modifications</button>
+      <a class="btn btn-outline form-cancel-btn" href="/admin">Annuler</a>
+      <button class="btn btn-gold form-save-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button>
     </div>
   </form>
 
@@ -186,6 +230,66 @@
   </div>
   <% } %>
 </div>
-</body></html>
-</div>
+<script>
+  (function () {
+    var sel = document.getElementById('themeSelect');
+    var box = document.getElementById('customThemeBox');
+    var pAcc = document.getElementById('pickerAccent');
+    var hAcc = document.getElementById('hexAccent');
+    var pBg = document.getElementById('pickerBg');
+    var hBg = document.getElementById('hexBg');
+    var prev = document.getElementById('ctPreview');
+    var seal = document.getElementById('ctPreviewSeal');
+    var title = document.getElementById('ctPreviewTitle');
+    var sub = document.getElementById('ctPreviewSub');
+    var btn = document.getElementById('ctPreviewBtn');
+
+    function lum(hex) {
+      var h = (hex || '#000000').replace('#', '');
+      if (h.length !== 6) return 0.5;
+      var rgb = [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)].map(function(v){
+        var s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+    }
+
+    function updatePreview() {
+      var bg = /^#[0-9a-fA-F]{6}$/.test(hBg.value) ? hBg.value : '#faf6f0';
+      var acc = /^#[0-9a-fA-F]{6}$/.test(hAcc.value) ? hAcc.value : '#b8913f';
+      var dark = lum(bg) < 0.35;
+      var btnTxt = lum(acc) > 0.42 ? '#18130d' : '#ffffff';
+      prev.style.background = bg;
+      prev.style.borderColor = acc;
+      title.style.color = dark ? '#f5f0e6' : '#221b16';
+      sub.style.color = dark ? '#c2b8a8' : '#6e6359';
+      seal.style.background = acc;
+      seal.style.color = btnTxt;
+      btn.style.background = acc;
+      btn.style.color = btnTxt;
+    }
+
+    if (sel && box) {
+      sel.addEventListener('change', function () {
+        box.style.display = sel.value === 'custom' ? 'block' : 'none';
+      });
+    }
+    if (pAcc && hAcc) {
+      pAcc.addEventListener('input', function () { hAcc.value = pAcc.value; updatePreview(); });
+      hAcc.addEventListener('input', function () { if (/^#[0-9a-fA-F]{6}$/.test(hAcc.value)) { pAcc.value = hAcc.value; updatePreview(); } });
+    }
+    if (pBg && hBg) {
+      pBg.addEventListener('input', function () { hBg.value = pBg.value; updatePreview(); });
+      hBg.addEventListener('input', function () { if (/^#[0-9a-fA-F]{6}$/.test(hBg.value)) { pBg.value = hBg.value; updatePreview(); } });
+    }
+    document.querySelectorAll('.ct-preset-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        pBg.value = hBg.value = chip.dataset.bg;
+        pAcc.value = hAcc.value = chip.dataset.accent;
+        updatePreview();
+      });
+    });
+    if (prev) updatePreview();
+  })();
+</script>
 </body></html>

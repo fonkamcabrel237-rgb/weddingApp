@@ -144,7 +144,7 @@ function applyUpdate(id, b) {
       slug = COALESCE(NULLIF(?, ''), slug), plan = ?, price = ?, partner = ?, partner_commission = ?, event_type = ?,
       bride = ?, groom = ?, headline = ?, story = ?, hashtag = ?, event_date = ?,
       venue_name = ?, venue_address = ?, city = ?, maps_query = ?, program = ?,
-      dress_code = ?, theme = ?, music_url = ?, rsvp_deadline = ?, couple_phone = ?, couple_email = ?,
+      dress_code = ?, theme = ?, custom_bg = ?, custom_accent = ?, music_url = ?, rsvp_deadline = ?, couple_phone = ?, couple_email = ?,
       cagnotte_enabled = ?, cagnotte_goal = ?, cagnotte_text = ?,
       momo_number = ?, momo_name = ?, om_number = ?, om_name = ?, updated_at = datetime('now')
     WHERE id = ?`,
@@ -154,6 +154,7 @@ function applyUpdate(id, b) {
     b.event_date || null, b.venue_name || null, b.venue_address || null, b.city || null,
     b.maps_query || [b.venue_name, b.venue_address, b.city].filter(Boolean).join(', ') || null,
     JSON.stringify(cleanProgram(b.program)), b.dress_code || null, U.THEMES[b.theme] ? b.theme : 'royal',
+    U.sanitizeHex(b.custom_bg, '#faf6f0'), U.sanitizeHex(b.custom_accent, '#b8913f'),
     b.music_url || null, b.rsvp_deadline || null, U.normalizePhone(b.couple_phone) || null, b.couple_email || null,
     b.cagnotte_enabled ? 1 : 0, parseInt(String(b.cagnotte_goal || '').replace(/\D/g, ''), 10) || 0, b.cagnotte_text || null,
     U.normalizePhone(b.momo_number) || null, b.momo_name || null, U.normalizePhone(b.om_number) || null, b.om_name || null,

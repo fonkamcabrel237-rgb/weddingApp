@@ -24,7 +24,63 @@ const THEMES = {
   kaba: 'Wax — couleurs chaudes',
   ivoire: 'Ivoire — blanc & rose poudré',
   emeraude: 'Émeraude — vert & or',
+  custom: 'Sur-mesure — Palette personnalisée des mariés',
 };
+
+const CUSTOM_PALETTES = [
+  { id: 'terracotta', name: 'Terracotta & Ivoire', bg: '#fdf8f4', accent: '#c85a32' },
+  { id: 'bordeaux', name: 'Bordeaux & Or', bg: '#fbf6f4', accent: '#7b1e26' },
+  { id: 'sauge', name: 'Vert Sauge & Crème', bg: '#f5f8f5', accent: '#4a6b53' },
+  { id: 'bleu_roi', name: 'Bleu Roi & Blanc', bg: '#f4f7ff', accent: '#1e3a8a' },
+  { id: 'rose_gold', name: 'Or Rose & Champagne', bg: '#fff8f6', accent: '#b76e79' },
+  { id: 'nuit_or', name: 'Bleu Nuit & Or Impérial', bg: '#0c1629', accent: '#d4af37' },
+];
+
+function sanitizeHex(val, fallback = '#b8913f') {
+  const s = String(val || '').trim();
+  return /^#[0-9a-fA-F]{6}$/.test(s) ? s.toLowerCase() : fallback;
+}
+
+function hexToRgb(hex) {
+  const h = sanitizeHex(hex, '#000000').slice(1);
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex(r, g, b) {
+  const c = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+
+function mixHex(h1, h2, weight = 0.5) {
+  const [r1, g1, b1] = hexToRgb(h1);
+  const [r2, g2, b2] = hexToRgb(h2);
+  return rgbToHex(r1 + (r2 - r1) * weight, g1 + (g2 - g1) * weight, b1 + (b2 - b1) * weight);
+}
+
+function luminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// Génère automatiquement toutes les variables CSS du faire-part à partir des 2 couleurs des mariés
+function customThemeStyle(w) {
+  if (!w || w.theme !== 'custom') return '';
+  const bg = sanitizeHex(w.custom_bg, '#faf6f0');
+  const accent = sanitizeHex(w.custom_accent, '#b8913f');
+  const isDark = luminance(bg) < 0.35;
+  const bg2 = isDark ? mixHex(bg, '#ffffff', 0.06) : mixHex(bg, accent, 0.08);
+  const card = isDark ? mixHex(bg, '#ffffff', 0.1) : '#ffffff';
+  const text = isDark ? '#f5f0e6' : '#221b16';
+  const muted = isDark ? mixHex(text, bg, 0.35) : mixHex(text, bg, 0.42);
+  const accent2 = mixHex(accent, '#ffffff', 0.28);
+  const [ar, ag, ab] = hexToRgb(accent);
+  const line = `rgba(${ar},${ag},${ab},0.32)`;
+  const btnText = luminance(accent) > 0.42 ? '#18130d' : '#ffffff';
+  return `--bg:${bg};--bg2:${bg2};--card:${card};--text:${text};--muted:${muted};--accent:${accent};--accent2:${accent2};--line:${line};--btn-text:${btnText};`;
+}
 
 const GUEST_CATEGORIES = {
   honneur: { label: "Table d'Honneur / Cortège", short: 'Honneur', icon: 'fa-crown' },
@@ -174,7 +230,8 @@ function csvEscape(v) {
 }
 
 module.exports = {
-  TZ, BASE_URL, PLANS, THEMES, GUEST_CATEGORIES, slugify, token, normalizePhone, prettyPhone, waLink, parseLocal,
+  TZ, BASE_URL, PLANS, THEMES, CUSTOM_PALETTES, GUEST_CATEGORIES, sanitizeHex, customThemeStyle,
+  slugify, token, normalizePhone, prettyPhone, waLink, parseLocal,
   fmtDate, fmtTime, fmtMoney, coupleNames, eventLabel, inviteUrl, inviteMessage, reminderMessage,
   parseProgram, mapsEmbed, mapsDirections, notify, csvEscape,
 };

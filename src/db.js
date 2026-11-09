@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS weddings (
   event_date TEXT,                       -- 'YYYY-MM-DDTHH:mm' heure de Douala
   venue_name TEXT, venue_address TEXT, city TEXT, maps_query TEXT,
   program TEXT DEFAULT '[]',             -- JSON [{title,date,place,address}]
-  dress_code TEXT, theme TEXT DEFAULT 'royal', music_url TEXT, cover_photo TEXT,
+  dress_code TEXT, theme TEXT DEFAULT 'royal', custom_bg TEXT DEFAULT '#faf6f0', custom_accent TEXT DEFAULT '#b8913f', music_url TEXT, cover_photo TEXT,
   rsvp_deadline TEXT, couple_phone TEXT, couple_email TEXT,
   cagnotte_enabled INTEGER DEFAULT 1, cagnotte_goal INTEGER DEFAULT 0, cagnotte_text TEXT,
   momo_number TEXT, momo_name TEXT, om_number TEXT, om_name TEXT,
@@ -102,6 +102,8 @@ function ensureColumn(table, col, def) {
 }
 ensureColumn('weddings', 'max_guests', 'INTEGER DEFAULT 200');
 ensureColumn('weddings', 'strict_rsvp', 'INTEGER DEFAULT 1');
+ensureColumn('weddings', 'custom_bg', "TEXT DEFAULT '#faf6f0'");
+ensureColumn('weddings', 'custom_accent', "TEXT DEFAULT '#b8913f'");
 ensureColumn('guests', 'category', "TEXT DEFAULT 'famille_mariee'");
 ensureColumn('guests', 'table_id', 'INTEGER REFERENCES wedding_tables(id) ON DELETE SET NULL');
 ensureColumn('guests', 'table_name', 'TEXT');

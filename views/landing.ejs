@@ -110,8 +110,36 @@
           <select name="plan" id="planSelect"><% Object.entries(PLANS).forEach(function([k, p]) { %><option value="<%= k %>" <%= k === 'prestige' ? 'selected' : '' %>><%= p.name %> — <%= fmtMoney(p.price) %></option><% }) %></select>
         </label>
         <label>Style
-          <select name="theme"><% Object.entries(THEMES).forEach(function([k, t]) { %><option value="<%= k %>"><%= t %></option><% }) %></select>
+          <select name="theme" id="orderThemeSelect"><% Object.entries(THEMES).forEach(function([k, t]) { %><option value="<%= k %>"><%= t %></option><% }) %></select>
         </label>
+      </div>
+      <div id="orderCustomTheme" class="custom-theme-box" style="display:none;margin-bottom:.9rem">
+        <div class="ct-head">
+          <strong><i class="fa-solid fa-palette" style="color:var(--gold)"></i> Choisissez vos couleurs de mariage</strong>
+          <span class="small muted">Cliquez sur une palette tendance ou sélectionnez vos 2 couleurs personnalisées :</span>
+        </div>
+        <div class="ct-presets">
+          <% CUSTOM_PALETTES.forEach(function(pal) { %>
+            <button type="button" class="ct-preset-chip order-preset" data-bg="<%= pal.bg %>" data-accent="<%= pal.accent %>">
+              <span class="ct-dots"><i style="background:<%= pal.bg %>"></i><i style="background:<%= pal.accent %>"></i></span>
+              <span><%= pal.name %></span>
+            </button>
+          <% }) %>
+        </div>
+        <div class="ct-pickers">
+          <label>Couleur principale (Boutons &amp; Sceau)
+            <div class="ct-color-row">
+              <input type="color" id="orderPickerAccent" value="#b8913f">
+              <input type="text" name="custom_accent" id="orderHexAccent" value="#b8913f" maxlength="7">
+            </div>
+          </label>
+          <label>Couleur de fond
+            <div class="ct-color-row">
+              <input type="color" id="orderPickerBg" value="#faf6f0">
+              <input type="text" name="custom_bg" id="orderHexBg" value="#faf6f0" maxlength="7">
+            </div>
+          </label>
+        </div>
       </div>
       <label>Vos photos (jusqu'à 30)<input type="file" name="photos" accept="image/*" multiple></label>
       <label>Wedding planner / photographe qui vous a recommandés<input name="partner" value="<%= ref %>" placeholder="Facultatif"></label>
@@ -150,5 +178,30 @@
   document.querySelectorAll('[data-plan]').forEach(function (a) {
     a.addEventListener('click', function () { document.getElementById('planSelect').value = a.dataset.plan; });
   });
+  (function () {
+    var sel = document.getElementById('orderThemeSelect');
+    var box = document.getElementById('orderCustomTheme');
+    var pAcc = document.getElementById('orderPickerAccent');
+    var hAcc = document.getElementById('orderHexAccent');
+    var pBg = document.getElementById('orderPickerBg');
+    var hBg = document.getElementById('orderHexBg');
+    if (sel && box) {
+      sel.addEventListener('change', function () { box.style.display = sel.value === 'custom' ? 'block' : 'none'; });
+    }
+    if (pAcc && hAcc) {
+      pAcc.addEventListener('input', function () { hAcc.value = pAcc.value; });
+      hAcc.addEventListener('input', function () { if (/^#[0-9a-fA-F]{6}$/.test(hAcc.value)) pAcc.value = hAcc.value; });
+    }
+    if (pBg && hBg) {
+      pBg.addEventListener('input', function () { hBg.value = pBg.value; });
+      hBg.addEventListener('input', function () { if (/^#[0-9a-fA-F]{6}$/.test(hBg.value)) pBg.value = hBg.value; });
+    }
+    document.querySelectorAll('.order-preset').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        pBg.value = hBg.value = chip.dataset.bg;
+        pAcc.value = hAcc.value = chip.dataset.accent;
+      });
+    });
+  })();
 </script>
 </body></html>
