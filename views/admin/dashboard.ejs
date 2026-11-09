@@ -59,7 +59,7 @@
 
           <div class="admin-item-footer">
             <form class="inline" method="post" action="/admin/leads/<%= l.id %>/status">
-              <select name="status" onchange="this.form.submit()" class="status-select">
+              <select name="status" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()" class="status-select">
                 <% ['new', 'contacted', 'won', 'lost'].forEach(function(s) { %><option value="<%= s %>" <%= l.status === s ? 'selected' : '' %>><%= { new: 'Nouveau', contacted: 'Contacté', won: 'Gagné', lost: 'Perdu' }[s] %></option><% }) %>
               </select>
             </form>
@@ -144,4 +144,5 @@
     </div>
   <% } %>
 </div>
+<script src="/static/js/seamless.js?v=8.0" defer></script>
 </body></html>

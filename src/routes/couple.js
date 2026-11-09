@@ -149,7 +149,7 @@ router.post('/:slug/invites/:id/delete', guard, (req, res) => {
   const guest = q.get('SELECT * FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
   q.run('DELETE FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
   if (guest && guest.table_id) recomputeTableSeats(guest.table_id);
-  res.redirect(`/espace/${req.w.slug}#invites`);
+  res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Invité supprimé')}#invites`);
 });
 
 // Appelé en arrière-plan quand on clique sur "Envoyer WhatsApp"
@@ -192,7 +192,7 @@ router.get('/:slug/checkin/:token', guard, (req, res) => {
 
 router.post('/:slug/checkin/:token', guard, (req, res) => {
   q.run("UPDATE guests SET checked_in_at = datetime('now') WHERE token = ? AND wedding_id = ? AND checked_in_at IS NULL", req.params.token, req.w.id);
-  if (req.body.back === 'accueil') return res.redirect(`/espace/${req.w.slug}/accueil`);
+  if (req.body.back === 'accueil') return res.redirect(`/espace/${req.w.slug}/accueil?ok=${encodeURIComponent('Entrée validée ✓')}`);
   res.redirect(`/espace/${req.w.slug}/checkin/${req.params.token}?done=1`);
 });
 

@@ -55,7 +55,7 @@ router.get('/', (req, res) => {
 
 router.post('/leads/:id/status', (req, res) => {
   q.run('UPDATE leads SET status = ? WHERE id = ?', req.body.status, req.params.id);
-  res.redirect('/admin#leads');
+  res.redirect(`/admin?ok=${encodeURIComponent('Statut de la commande mis à jour')}#leads`);
 });
 
 // ---------- Faire-part ----------

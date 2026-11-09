@@ -109,12 +109,12 @@
 
           <% if (g.status !== 'no') { %>
             <form class="g-assign" method="post" action="/espace/<%= w.slug %>/invites/<%= g.id %>/assign">
-              <select name="category" aria-label="Intimité" onchange="this.form.submit()">
+              <select name="category" aria-label="Intimité" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
                 <% Object.entries(GUEST_CATEGORIES).forEach(function([k, info]) { %>
                   <option value="<%= k %>" <%= g.category === k ? 'selected' : '' %>><%= info.short %></option>
                 <% }) %>
               </select>
-              <select name="table_id" aria-label="Table attribuée" onchange="this.form.submit()">
+              <select name="table_id" aria-label="Table attribuée" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
                 <option value="none" <%= !g.table_id ? 'selected' : '' %>>— Choisir une table —</option>
                 <option value="auto">⚡ Auto (selon intimité)</option>
                 <% tables.forEach(function(t) { %>
@@ -372,43 +372,55 @@
   <a href="/espace/<%= w.slug %>/accueil"><i class="fa-solid fa-door-open"></i>Jour J</a>
 </nav>
 
+<script src="/static/js/seamless.js?v=8.0" defer></script>
 <script>
   (function () {
     var slug = <%- JSON.stringify(w.slug) %>;
-    var btns = Array.prototype.slice.call(document.querySelectorAll('.wa-send'));
-    var bar = document.getElementById('sendBar');
-    var info = document.getElementById('sendInfo');
+    function getBtns() {
+      return Array.prototype.slice.call(document.querySelectorAll('.wa-send'));
+    }
     function progress() {
-      if (!bar || !btns.length) return;
+      var bar = document.getElementById('sendBar');
+      var btns = getBtns();
+      if (!bar || !btns.length) return 0;
       var done = btns.filter(function (x) { return x.dataset.done; }).length;
       bar.style.width = Math.round(done * 100 / btns.length) + '%';
       return done;
     }
     function markSent(b) {
-      b.closest('.guest-card').classList.add('sent');
+      var card = b.closest('.guest-card');
+      if (card) card.classList.add('sent');
       b.dataset.done = '1';
       fetch('/espace/' + slug + '/invites/' + b.dataset.id + '/sent', { method: 'POST' }).catch(function () {});
       progress();
     }
-    btns.forEach(function (b) { b.addEventListener('click', function () { markSent(b); }); });
-    var next = document.getElementById('sendNext');
-    if (next) next.addEventListener('click', function () {
-      var b = btns.find(function (x) { return !x.dataset.done; });
-      if (!b) { info.textContent = '✅ Tous les messages de cette liste ont été ouverts.'; return; }
-      markSent(b);
-      window.open(b.href, '_blank');
-      var name = b.closest('.guest-card').querySelector('.g-name').textContent;
-      var left = btns.length - progress();
-      info.textContent = 'Ouvert pour ' + name + (left ? ' · reste ' + left : ' · terminé ✅');
-    });
-    document.querySelectorAll('[data-copy]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var html = b.innerHTML;
-        (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.copy) : Promise.reject()).then(function () {
-          b.innerHTML = '<i class="fa-solid fa-check"></i> Copié';
-          setTimeout(function () { b.innerHTML = html; }, 1600);
-        }).catch(function () { prompt('Copiez le lien :', b.dataset.copy); });
-      });
+    document.addEventListener('click', function (e) {
+      var waBtn = e.target.closest('.wa-send');
+      if (waBtn) {
+        markSent(waBtn);
+        return;
+      }
+      var nextBtn = e.target.closest('#sendNext');
+      if (nextBtn) {
+        var btns = getBtns();
+        var info = document.getElementById('sendInfo');
+        var b = btns.find(function (x) { return !x.dataset.done; });
+        if (!b) { if (info) info.textContent = '✅ Tous les messages de cette liste ont été ouverts.'; return; }
+        markSent(b);
+        window.open(b.href, '_blank');
+        var name = b.closest('.guest-card').querySelector('.g-name').textContent;
+        var left = btns.length - progress();
+        if (info) info.textContent = 'Ouvert pour ' + name + (left ? ' · reste ' + left : ' · terminé ✅');
+        return;
+      }
+      var copyBtn = e.target.closest('[data-copy]');
+      if (copyBtn) {
+        var html = copyBtn.innerHTML;
+        (navigator.clipboard ? navigator.clipboard.writeText(copyBtn.dataset.copy) : Promise.reject()).then(function () {
+          copyBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+          setTimeout(function () { copyBtn.innerHTML = html; }, 1600);
+        }).catch(function () { prompt('Copiez le texte :', copyBtn.dataset.copy); });
+      }
     });
   })();
 </script>
