@@ -192,10 +192,12 @@
       <div class="card cagnotte-success-card">
         <div class="cagnotte-success-icon"><i class="fa-solid fa-gift"></i></div>
         <h3 style="font-size:1.6rem;margin-bottom:.3rem">Merci de tout cœur !</h3>
-        <p>Votre don de <strong><%= fmtMoney(contribSuccess.amount) %></strong> via <strong><%= contribSuccess.provider === 'om' ? 'Orange Money' : 'MTN MoMo' %></strong> a bien été enregistré.</p>
-        <p class="small muted" style="margin-top:.3rem">Les mariés en ont été informés et recevront votre tendre message.</p>
+        <p>Votre déclaration de don de <strong><%= fmtMoney(contribSuccess.amount) %></strong> via <strong><%= contribSuccess.provider === 'om' ? 'Orange Money' : 'MTN MoMo' %></strong> a bien été transmise aux mariés.</p>
+        <p class="small muted" style="margin-top:.3rem">
+          ⏳ <em>En attente de confirmation par les mariés.</em> Dès qu'ils vérifient leur SMS de réception sur leur téléphone personnel, votre don apparaîtra officiellement sur la cagnotte.
+        </p>
         <% if (w.couple_phone) { %>
-          <a class="btn btn-whatsapp btn-block" style="margin-top:1rem" target="_blank" rel="noopener" href="<%= waLink(w.couple_phone, 'Bonjour ' + names + ' 💍 ! C\'est ' + (contribSuccess.name || 'un invité') + '. Je viens de vous envoyer un cadeau de ' + fmtMoney(contribSuccess.amount) + ' via ' + (contribSuccess.provider === 'om' ? 'Orange Money' : 'MTN MoMo') + ' pour votre mariage.' + (contribSuccess.message ? ' « ' + contribSuccess.message + ' »' : '') + ' 🎉') %>">
+          <a class="btn btn-whatsapp btn-block" style="margin-top:1rem" target="_blank" rel="noopener" href="<%= waLink(w.couple_phone, 'Bonjour ' + names + ' 💍 ! C\'est ' + (contribSuccess.name || 'un invité') + '. Je viens de vous envoyer un cadeau de ' + fmtMoney(contribSuccess.amount) + ' via ' + (contribSuccess.provider === 'om' ? 'Orange Money' : 'MTN MoMo') + ' pour votre mariage.' + (contribSuccess.provider_ref ? ' (Réf SMS: ' + contribSuccess.provider_ref + ')' : '') + (contribSuccess.message ? ' « ' + contribSuccess.message + ' »' : '') + ' 🎉') %>">
             <i class="fa-brands fa-whatsapp"></i> Informer les mariés sur WhatsApp
           </a>
         <% } %>
@@ -299,7 +301,7 @@
 
           <div class="cagnotte-step" style="margin-top:1.5rem">
             <span class="step-badge">3</span>
-            <span class="step-label">Confirmez votre cadeau pour le livre d'or</span>
+            <span class="step-label">Déclarez votre cadeau pour les mariés</span>
           </div>
 
           <label>Votre nom complet ou famille
@@ -308,12 +310,18 @@
           <label>Votre numéro de téléphone (facultatif)
             <input name="phone" type="tel" inputmode="tel" placeholder="6XX XX XX XX" value="<%= guest && guest.phone ? prettyPhone(guest.phone) : '' %>">
           </label>
+          <label>Réf. / ID de transaction SMS (facultatif)
+            <input name="trx_ref" maxlength="60" placeholder="Ex : 2419402919 ou ID reçu par SMS">
+          </label>
           <label>Votre message de félicitations
             <textarea name="message" rows="2" maxlength="300" placeholder="Tous nos vœux de bonheur pour votre nouvelle vie…"></textarea>
           </label>
           <button class="btn btn-gold btn-block" <%= isDraft ? 'disabled' : '' %> style="margin-top:.8rem">
-            <i class="fa-solid fa-heart"></i> J'ai effectué mon transfert
+            <i class="fa-solid fa-paper-plane"></i> Transmettre ma déclaration de don
           </button>
+          <p class="small muted" style="text-align:center;margin-top:.6rem;font-size:.78rem">
+            <i class="fa-solid fa-shield-halved" style="color:var(--accent)"></i> Transfert direct 0% frais. Les mariés vérifient le SMS reçu sur leur téléphone avant de valider votre don sur la cagnotte.
+          </p>
         </form>
       </div>
     <% } %>

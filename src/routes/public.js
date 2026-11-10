@@ -222,14 +222,15 @@ router.post('/i/:slug/cagnotte', loadWedding, async (req, res) => {
   const phone = U.normalizePhone(req.body.phone);
   const operator = req.body.operator === 'om' ? 'om' : 'momo';
   const message = String(req.body.message || '').trim().slice(0, 300) || null;
+  const trxRef = String(req.body.trx_ref || req.body.provider_ref || '').trim().slice(0, 60) || null;
 
   q.run(
-    "INSERT INTO contributions (wedding_id, name, phone, amount, message, reference, provider, status, paid_at) VALUES (?,?,?,?,?,?,?,?,datetime('now'))",
-    w.id, name, phone || null, amount, message, reference, operator, 'pending'
+    "INSERT INTO contributions (wedding_id, name, phone, amount, message, reference, provider_ref, provider, status, paid_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))",
+    w.id, name, phone || null, amount, message, reference, trxRef, operator, 'pending'
   );
 
   await U.notify(
-    `💰 Cagnotte ${U.coupleNames(w)} : ${U.fmtMoney(amount)} de ${name} (${operator === 'om' ? 'Orange Money' : 'MTN MoMo'})${message ? ' | « ' + message + ' »' : ''}`
+    `💰 Cagnotte ${U.coupleNames(w)} : ${U.fmtMoney(amount)} de ${name} (${operator === 'om' ? 'Orange Money' : 'MTN MoMo'})${trxRef ? ' [Réf: ' + trxRef + ']' : ''}${message ? ' | « ' + message + ' »' : ''}`
   );
 
   res.redirect(`/i/${w.slug}?ok=cagnotte_merci&c=${reference}#cagnotte`);

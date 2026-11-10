@@ -108,6 +108,7 @@ ensureColumn('guests', 'category', "TEXT DEFAULT 'famille_mariee'");
 ensureColumn('guests', 'table_id', 'INTEGER REFERENCES wedding_tables(id) ON DELETE SET NULL');
 ensureColumn('guests', 'table_name', 'TEXT');
 ensureColumn('guests', 'seat_numbers', 'TEXT');
+ensureColumn('contributions', 'provider_ref', 'TEXT');
 
 // node:sqlite refuse `undefined` : on convertit en NULL.
 const clean = (p) => p.map((v) => (v === undefined ? null : typeof v === 'boolean' ? Number(v) : v));

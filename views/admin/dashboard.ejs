@@ -2,12 +2,7 @@
 <%- include('../partials/admin-nav') %>
 <div class="container page admin-page">
   <% if (flash) { %><div class="flash"><i class="fa-solid fa-circle-check"></i> <%= flash %></div><% } %>
-  <% if (paymentMode !== 'live') { %>
-    <div class="alert-box-subtle">
-      <i class="fa-solid fa-circle-info"></i>
-      <div>Mode <strong>DÉMO</strong> (Notch Pay simulé). Pour encaisser en réel : renseigne <code>NOTCHPAY_PUBLIC_KEY</code> dans <code>.env</code>.</div>
-    </div>
-  <% } %>
+
 
   <div class="kpi-grid">
     <div class="kpi-card highlight">
