@@ -127,6 +127,14 @@ function prettyPhone(d) {
   return d ? '+' + d : '';
 }
 
+// Extrait le numéro local camerounais à 9 chiffres (ex: 670123456 pour les syntaxes USSD)
+function localPhone(raw) {
+  if (!raw) return '';
+  const d = String(raw).replace(/\D/g, '');
+  if (d.startsWith('237') && d.length === 12) return d.slice(3);
+  return d;
+}
+
 function waLink(phone, text) {
   const p = normalizePhone(phone);
   return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
@@ -231,7 +239,7 @@ function csvEscape(v) {
 
 module.exports = {
   TZ, BASE_URL, PLANS, THEMES, CUSTOM_PALETTES, GUEST_CATEGORIES, sanitizeHex, customThemeStyle,
-  slugify, token, normalizePhone, prettyPhone, waLink, parseLocal,
+  slugify, token, normalizePhone, prettyPhone, localPhone, waLink, parseLocal,
   fmtDate, fmtTime, fmtMoney, coupleNames, eventLabel, inviteUrl, inviteMessage, reminderMessage,
   parseProgram, mapsEmbed, mapsDirections, notify, csvEscape,
 };

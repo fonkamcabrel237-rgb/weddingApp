@@ -152,12 +152,15 @@ test('NIVEAU 2.2 — Tunnel RSVP contrôlé par la BD des mariés & Pass QR avec
   q.run('DELETE FROM wedding_tables WHERE id = ?', table.id);
 });
 
-test('NIVEAU 2.3 — Tunnel Cagnotte MoMo / OM (Simulation Démo & Confirmation)', async () => {
-  // 1. Démarrage d'une contribution
+test('NIVEAU 2.3 — Tunnel Cagnotte MoMo / OM (USSD Direct & Validation Mariés)', async () => {
+  const w = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
+
+  // 1. Déclaration d'un don direct par un invité via le code USSD MoMo
   const contribParams = new URLSearchParams({
     name: 'Parrain Marc',
     phone: '657664546',
     amount: '15000',
+    operator: 'momo',
     message: 'Pour votre installation !',
   });
 
@@ -169,32 +172,40 @@ test('NIVEAU 2.3 — Tunnel Cagnotte MoMo / OM (Simulation Démo & Confirmation)
 
   assert.strictEqual(initRes.status, 302);
   const redirectUrl = initRes.headers.get('location');
-  assert.ok(redirectUrl.includes('/paiement/demo?reference='), 'En mode démo, doit rediriger vers la page simulateur');
+  assert.ok(redirectUrl.includes('ok=cagnotte_merci'), 'Doit rediriger vers le faire-part avec le message de remerciement');
 
   // Extraire la référence
-  const ref = new URL(redirectUrl, BASE).searchParams.get('reference');
+  const ref = new URL(redirectUrl, BASE).searchParams.get('c');
   const contrib = q.get('SELECT * FROM contributions WHERE reference = ?', ref);
   assert.ok(contrib, 'La contribution doit être insérée en statut pending');
   assert.strictEqual(contrib.amount, 15000);
+  assert.strictEqual(contrib.provider, 'momo');
   assert.strictEqual(contrib.status, 'pending');
 
-  // 2. Validation de la simulation démo (Résultat = ok)
-  const validateParams = new URLSearchParams({
-    reference: ref,
-    result: 'ok',
-  });
-  const simuRes = await request('/paiement/demo', {
+  // 2. Affichage du message de confirmation et bouton WhatsApp sur le faire-part
+  const viewSuccess = await request(`/i/demo?ok=cagnotte_merci&c=${ref}`);
+  assert.strictEqual(viewSuccess.status, 200);
+  assert.ok(viewSuccess.body.includes('Merci de tout'), 'Doit afficher la carte de remerciement pour le don');
+  assert.ok(viewSuccess.body.includes('15 000 FCFA'), 'Doit mentionner le montant offert');
+
+  // 3. Les mariés valident la réception du don dans leur espace
+  const loginRes = await request('/espace/demo/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: validateParams.toString(),
+    body: `key=${w.access_key}`,
   });
+  const cookieHeader = loginRes.cookies.find(c => c.startsWith(`c${w.id}=`));
+  const cookieVal = cookieHeader.split(';')[0];
 
-  assert.strictEqual(simuRes.status, 302);
-  assert.ok(simuRes.headers.get('location').includes('/paiement/retour?reference='));
+  const confirmRes = await request(`/espace/demo/cagnotte/${contrib.id}/confirm`, {
+    method: 'POST',
+    headers: { 'Cookie': cookieVal },
+  });
+  assert.strictEqual(confirmRes.status, 302);
 
   // Vérifier passage à 'complete'
-  const updatedContrib = q.get('SELECT * FROM contributions WHERE reference = ?', ref);
-  assert.strictEqual(updatedContrib.status, 'complete', 'La contribution doit être validée');
+  const updatedContrib = q.get('SELECT * FROM contributions WHERE id = ?', contrib.id);
+  assert.strictEqual(updatedContrib.status, 'complete', 'La contribution doit être validée par les mariés');
 
   // Nettoyage
   q.run('DELETE FROM contributions WHERE id = ?', updatedContrib.id);

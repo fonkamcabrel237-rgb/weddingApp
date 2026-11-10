@@ -94,14 +94,91 @@
     lb.addEventListener('click', function () { lb.hidden = true; img.src = ''; });
   }
 
-  // Montants rapides cagnotte
-  var amount = document.getElementById('amount');
-  document.querySelectorAll('.chip[data-amount]').forEach(function (c) {
-    c.addEventListener('click', function () {
-      document.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('active'); });
-      c.classList.add('active'); amount.value = c.dataset.amount;
+  // Cagnotte USSD dynamique (Mobile First)
+  var cagnotteCard = document.getElementById('cagnotteCard');
+  if (cagnotteCard) {
+    var momoNum = cagnotteCard.dataset.momo || '';
+    var omNum = cagnotteCard.dataset.om || '';
+    var amountInput = document.getElementById('amount');
+    var formAmount = document.getElementById('formAmount');
+    var formOperator = document.getElementById('formOperator');
+    var ussdDialBtn = document.getElementById('ussdDialBtn');
+    var ussdBtnLabel = document.getElementById('ussdBtnLabel');
+    var ussdCodeText = document.getElementById('ussdCodeText');
+    var copyUssdBtn = document.getElementById('copyUssdBtn');
+    var operatorCards = document.querySelectorAll('.operator-card');
+
+    function fmtF(n) {
+      return (Number(n) || 0).toLocaleString('fr-FR').replace(/\s/g, ' ') + ' FCFA';
+    }
+
+    function updateUssd() {
+      var amt = parseInt(String((amountInput && amountInput.value) || '').replace(/\D/g, ''), 10) || 0;
+      if (formAmount) formAmount.value = amt;
+
+      var currentOp = 'momo';
+      var checkedRadio = document.querySelector('input[name="op_choice"]:checked');
+      if (checkedRadio) currentOp = checkedRadio.value;
+      if (formOperator) formOperator.value = currentOp;
+
+      var code = '';
+      var telUri = '';
+      var label = '';
+
+      if (currentOp === 'om' && omNum) {
+        code = '#150*1*1*' + omNum + '*' + amt + '#';
+        telUri = 'tel:%23150*1*1*' + omNum + '*' + amt + '%23';
+        label = 'Composer le code Orange (' + fmtF(amt) + ')';
+        if (ussdDialBtn) {
+          ussdDialBtn.className = 'btn btn-ussd op-om';
+        }
+      } else {
+        var targetNum = momoNum || omNum;
+        code = '*126*1*1*' + targetNum + '*' + amt + '#';
+        telUri = 'tel:*126*1*1*' + targetNum + '*' + amt + '%23';
+        label = 'Composer le code MoMo (' + fmtF(amt) + ')';
+        if (ussdDialBtn) {
+          ussdDialBtn.className = 'btn btn-ussd op-momo';
+        }
+      }
+
+      if (ussdDialBtn) ussdDialBtn.href = telUri;
+      if (ussdBtnLabel) ussdBtnLabel.textContent = label;
+      if (ussdCodeText) ussdCodeText.textContent = code;
+      if (copyUssdBtn) copyUssdBtn.dataset.copy = code;
+    }
+
+    if (amountInput) {
+      amountInput.addEventListener('input', function () {
+        var raw = amountInput.value.replace(/\D/g, '');
+        document.querySelectorAll('.chip[data-amount]').forEach(function (c) {
+          c.classList.toggle('active', c.dataset.amount === raw);
+        });
+        updateUssd();
+      });
+    }
+
+    document.querySelectorAll('.chip[data-amount]').forEach(function (c) {
+      c.addEventListener('click', function () {
+        document.querySelectorAll('.chip[data-amount]').forEach(function (x) { x.classList.remove('active'); });
+        c.classList.add('active');
+        if (amountInput) amountInput.value = c.dataset.amount;
+        updateUssd();
+      });
     });
-  });
+
+    operatorCards.forEach(function (card) {
+      card.addEventListener('click', function () {
+        operatorCards.forEach(function (x) { x.classList.remove('active'); });
+        card.classList.add('active');
+        var r = card.querySelector('input[type="radio"]');
+        if (r) r.checked = true;
+        updateUssd();
+      });
+    });
+
+    updateUssd();
+  }
 
   // Nombre de personnes masqué si absent
   var countField = document.querySelector('.count-field');

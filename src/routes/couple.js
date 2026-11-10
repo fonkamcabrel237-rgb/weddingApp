@@ -46,7 +46,7 @@ router.get('/:slug', guard, (req, res) => {
     ...params
   );
   const tables = getTablesWithOccupancy(w.id);
-  const contributions = q.all("SELECT * FROM contributions WHERE wedding_id = ? AND status='complete' ORDER BY paid_at DESC", w.id);
+  const contributions = q.all("SELECT * FROM contributions WHERE wedding_id = ? ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, paid_at DESC, id DESC", w.id);
   const daysLeft = w.event_date ? Math.ceil((U.parseLocal(w.event_date) - new Date()) / 86400000) : null;
   res.render('couple/dashboard', { w, guests, tables, contributions, s: stats(w.id), filter, daysLeft, query: req.query });
 });
@@ -150,6 +150,17 @@ router.post('/:slug/invites/:id/delete', guard, (req, res) => {
   q.run('DELETE FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
   if (guest && guest.table_id) recomputeTableSeats(guest.table_id);
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Invité supprimé')}#invites`);
+});
+
+// Validation / Suppression d'un don de la cagnotte
+router.post('/:slug/cagnotte/:id/confirm', guard, (req, res) => {
+  q.run("UPDATE contributions SET status = 'complete', paid_at = datetime('now') WHERE id = ? AND wedding_id = ?", req.params.id, req.w.id);
+  res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Don validé et ajouté à la cagnotte')}#cagnotte`);
+});
+
+router.post('/:slug/cagnotte/:id/delete', guard, (req, res) => {
+  q.run('DELETE FROM contributions WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
+  res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Contribution supprimée')}#cagnotte`);
 });
 
 // Appelé en arrière-plan quand on clique sur "Envoyer WhatsApp"

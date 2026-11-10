@@ -73,9 +73,12 @@ router.get('/i/:slug', loadWedding, (req, res) => {
   const photos = q.all('SELECT * FROM photos WHERE wedding_id = ? ORDER BY position, id', w.id);
   const wishes = q.all("SELECT name, message, responded_at FROM guests WHERE wedding_id = ? AND message IS NOT NULL AND message <> '' AND status='yes' ORDER BY responded_at DESC LIMIT 30", w.id);
   const deadlinePassed = w.rsvp_deadline && U.parseLocal(w.rsvp_deadline) < new Date();
+  const contribSuccess = req.query.ok === 'cagnotte_merci' && req.query.c
+    ? q.get('SELECT * FROM contributions WHERE reference = ? AND wedding_id = ?', req.query.c, w.id)
+    : null;
   res.render('invitation', {
     w, guest, photos, wishes, program: U.parseProgram(w), s: stats(w.id), deadlinePassed,
-    isDraft: w.status !== 'published', error: req.query.err || null,
+    contribSuccess, isDraft: w.status !== 'published', error: req.query.err || null,
   });
 });
 
@@ -207,7 +210,7 @@ router.get('/i/:slug/calendar.ics', loadWedding, (req, res) => {
   ].join('\r\n'));
 });
 
-// ---------- Cagnotte ----------
+// ---------- Cagnotte Directe USSD (MoMo & Orange Money) ----------
 router.post('/i/:slug/cagnotte', loadWedding, async (req, res) => {
   const w = req.w;
   const amount = parseInt(String(req.body.amount || '').replace(/\D/g, ''), 10);
@@ -217,22 +220,19 @@ router.post('/i/:slug/cagnotte', loadWedding, async (req, res) => {
   const reference = `ndl-${w.id}-${Date.now()}-${U.token(4)}`;
   const name = String(req.body.name || '').trim().slice(0, 100) || 'Anonyme';
   const phone = U.normalizePhone(req.body.phone);
-  q.run('INSERT INTO contributions (wedding_id, name, phone, amount, message, reference, provider) VALUES (?,?,?,?,?,?,?)',
-    w.id, name, phone || null, amount, String(req.body.message || '').trim().slice(0, 300) || null, reference, payments.mode());
-  try {
-    const r = await payments.initPayment({
-      amount, reference,
-      description: `Cagnotte mariage ${U.coupleNames(w)}`,
-      callback: `${U.BASE_URL()}/paiement/retour`,
-      customer: { name, phone, email: req.body.email },
-    });
-    if (r.providerRef) q.run('UPDATE contributions SET provider_ref = ? WHERE reference = ?', r.providerRef, reference);
-    res.redirect(r.url);
-  } catch (e) {
-    console.error('Init paiement:', e.message);
-    q.run("UPDATE contributions SET status='failed' WHERE reference = ?", reference);
-    res.redirect(`/i/${w.slug}?err=payment#cagnotte`);
-  }
+  const operator = req.body.operator === 'om' ? 'om' : 'momo';
+  const message = String(req.body.message || '').trim().slice(0, 300) || null;
+
+  q.run(
+    "INSERT INTO contributions (wedding_id, name, phone, amount, message, reference, provider, status, paid_at) VALUES (?,?,?,?,?,?,?,?,datetime('now'))",
+    w.id, name, phone || null, amount, message, reference, operator, 'pending'
+  );
+
+  await U.notify(
+    `💰 Cagnotte ${U.coupleNames(w)} : ${U.fmtMoney(amount)} de ${name} (${operator === 'om' ? 'Orange Money' : 'MTN MoMo'})${message ? ' | « ' + message + ' »' : ''}`
+  );
+
+  res.redirect(`/i/${w.slug}?ok=cagnotte_merci&c=${reference}#cagnotte`);
 });
 
 router.get('/paiement/retour', async (req, res) => {

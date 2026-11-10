@@ -335,22 +335,68 @@
   <!-- ===== Cagnotte ===== -->
   <% if (w.cagnotte_enabled) { %>
   <section class="cp-section" id="cagnotte">
-    <div class="cp-section-head"><h2><i class="fa-solid fa-gift"></i> Cagnotte</h2></div>
+    <div class="cp-section-head">
+      <h2><i class="fa-solid fa-gift"></i> Cagnotte (<%= contributions.length %>)</h2>
+      <% const pendingCount = contributions.filter(c => c.status === 'pending').length; %>
+      <% if (pendingCount > 0) { %>
+        <span class="badge b-pending" style="font-weight:700"><i class="fa-solid fa-clock"></i> <%= pendingCount %> à vérifier</span>
+      <% } %>
+    </div>
     <div class="cp-card">
       <% if (w.cagnotte_goal) { const pct = Math.min(100, Math.round(s.cagnotte.total * 100 / w.cagnotte_goal)); %>
-        <div class="row between small"><strong><%= fmtMoney(s.cagnotte.total) %></strong><span class="muted"><%= pct %>% de <%= fmtMoney(w.cagnotte_goal) %></span></div>
+        <div class="row between small"><strong>Total validé : <%= fmtMoney(s.cagnotte.total) %></strong><span class="muted"><%= pct %>% de <%= fmtMoney(w.cagnotte_goal) %></span></div>
         <div class="cp-bar"><div style="width:<%= pct %>%"></div></div>
-      <% } %>
-      <% if (!contributions.length) { %>
-        <div class="cp-empty"><i class="fa-solid fa-hand-holding-heart"></i>Aucune contribution en ligne pour le moment.</div>
       <% } else { %>
-        <% contributions.forEach(function(c) { %>
-          <div class="cp-gift">
-            <div><strong style="font-weight:600"><%= c.name %></strong><% if (c.message) { %><p>« <%= c.message %> »</p><% } %></div>
-            <strong><%= fmtMoney(c.amount) %></strong>
-          </div>
-        <% }) %>
-        <p class="small muted" style="margin:10px 0 0">Net reversé après l'événement : <strong><%= fmtMoney(s.cagnotte.net) %></strong><%= s.cagnotte.fee ? ' (frais ' + fmtMoney(s.cagnotte.fee) + ')' : '' %></p>
+        <div class="row between small"><strong>Total validé : <%= fmtMoney(s.cagnotte.total) %></strong><span class="muted"><%= s.cagnotte.count %> don(s) confirmé(s)</span></div>
+      <% } %>
+      <p class="small muted" style="margin:8px 0 12px">0% frais prélevés : les fonds sont transférés directement sur vos comptes MoMo / Orange Money personnels.</p>
+
+      <% if (!contributions.length) { %>
+        <div class="cp-empty"><i class="fa-solid fa-hand-holding-heart"></i>Aucun don déclaré pour le moment.</div>
+      <% } else { %>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <% contributions.forEach(function(c) {
+            const isPending = c.status === 'pending';
+            const isOm = c.provider === 'om';
+          %>
+            <div class="cp-gift-card" style="background:#fff;border:1.5px solid <%= isPending ? '#e6cf9b' : 'var(--line)' %>;border-radius:14px;padding:12px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                <div style="min-width:0;flex:1">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <strong style="font-size:1rem"><%= c.name %></strong>
+                    <span class="badge" style="background:<%= isOm ? '#fff0e5' : '#fffbe5' %>;color:<%= isOm ? '#d45400' : '#8a6500' %>;border:1px solid <%= isOm ? '#ffc7a3' : '#ffe082' %>;font-weight:700">
+                      <%= isOm ? '🟠 Orange' : '🟡 MoMo' %>
+                    </span>
+                    <% if (isPending) { %>
+                      <span class="badge b-pending"><i class="fa-solid fa-clock"></i> À vérifier (SMS)</span>
+                    <% } else { %>
+                      <span class="badge b-yes"><i class="fa-solid fa-check"></i> Reçu</span>
+                    <% } %>
+                  </div>
+                  <% if (c.phone) { %><div class="small muted" style="margin-top:2px"><i class="fa-solid fa-phone" style="font-size:.7rem"></i> <%= prettyPhone(c.phone) %></div><% } %>
+                  <% if (c.message) { %><p class="g-msg" style="margin:6px 0 0">« <%= c.message %> »</p><% } %>
+                </div>
+                <strong style="font-size:1.1rem;white-space:nowrap;color:var(--gold)"><%= fmtMoney(c.amount) %></strong>
+              </div>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed #eee">
+                <span class="small muted" style="font-size:.76rem"><%= fmtDate(c.paid_at || c.created_at) %></span>
+                <div style="display:flex;gap:6px">
+                  <% if (isPending) { %>
+                    <form method="post" action="/espace/<%= w.slug %>/cagnotte/<%= c.id %>/confirm" style="margin:0">
+                      <button class="cp-btn gold sm" style="min-height:34px;padding:0 12px;font-size:.82rem" title="Confirmer la réception du SMS MTN/Orange">
+                        <i class="fa-solid fa-check"></i> Valider la réception
+                      </button>
+                    </form>
+                  <% } %>
+                  <form method="post" action="/espace/<%= w.slug %>/cagnotte/<%= c.id %>/delete" style="margin:0" onsubmit="return confirm('Supprimer ce don déclaré ?')">
+                    <button class="cp-btn sq del" style="width:34px;min-height:34px;padding:0;border-radius:8px" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
       <% } %>
     </div>
   </section>

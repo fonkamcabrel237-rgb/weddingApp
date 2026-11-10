@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Great+Vibes&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="/static/css/invite.css?v=9.0">
+  <link rel="stylesheet" href="/static/css/invite.css?v=10.0">
 </head>
 <body class="theme-<%= w.theme || 'royal' %>" <% if (w.theme === 'custom') { %>style="<%= customThemeStyle(w) %>"<% } %>>
 
@@ -177,42 +177,138 @@
     <% } %>
   </section>
 
-  <!-- CAGNOTTE -->
-  <% if (w.cagnotte_enabled && (paymentMode !== 'off' || w.momo_number || w.om_number)) { %>
+  <!-- CAGNOTTE DIRECTE USSD (MTN MoMo & Orange Money) -->
+  <% if (w.cagnotte_enabled) { %>
   <section class="section cagnotte reveal" id="cagnotte">
     <h2 class="section-title">La cagnotte des mariés</h2>
     <div class="ornament">❦</div>
     <p><%= w.cagnotte_text || 'Votre présence est notre plus beau cadeau. Pour ceux qui le souhaitent, une cagnotte est ouverte pour nous aider à bâtir notre foyer.' %></p>
     <% if (w.cagnotte_goal > 0) { const pct = Math.min(100, Math.round(s.cagnotte.total * 100 / w.cagnotte_goal)); %>
       <div class="progress"><div style="width: <%= pct %>%"></div></div>
-      <p class="muted"><strong><%= fmtMoney(s.cagnotte.total) %></strong> collectés sur <%= fmtMoney(w.cagnotte_goal) %> · <%= s.cagnotte.count %> contribution(s)</p>
+      <p class="muted"><strong><%= fmtMoney(s.cagnotte.total) %></strong> collectés sur <%= fmtMoney(w.cagnotte_goal) %> · <%= s.cagnotte.count %> don(s) validé(s)</p>
     <% } %>
-    <% if (error === 'amount') { %><p class="alert"><i class="fa-solid fa-triangle-exclamation"></i> Montant minimum : 500 FCFA.</p><% } %>
-    <% if (error === 'payment') { %><p class="alert"><i class="fa-solid fa-triangle-exclamation"></i> Le paiement n'a pas pu démarrer. Réessayez ou utilisez le transfert direct ci-dessous.</p><% } %>
 
-    <% if (paymentMode !== 'off') { %>
-    <form method="post" action="/i/<%= w.slug %>/cagnotte" class="card form">
-      <div class="amounts">
-        <% [5000, 10000, 25000, 50000].forEach(function(a) { %><button type="button" class="chip" data-amount="<%= a %>"><%= fmtMoney(a) %></button><% }) %>
+    <% if (contribSuccess) { %>
+      <div class="card cagnotte-success-card">
+        <div class="cagnotte-success-icon"><i class="fa-solid fa-gift"></i></div>
+        <h3 style="font-size:1.6rem;margin-bottom:.3rem">Merci de tout cœur !</h3>
+        <p>Votre don de <strong><%= fmtMoney(contribSuccess.amount) %></strong> via <strong><%= contribSuccess.provider === 'om' ? 'Orange Money' : 'MTN MoMo' %></strong> a bien été enregistré.</p>
+        <p class="small muted" style="margin-top:.3rem">Les mariés en ont été informés et recevront votre tendre message.</p>
+        <% if (w.couple_phone) { %>
+          <a class="btn btn-whatsapp btn-block" style="margin-top:1rem" target="_blank" rel="noopener" href="<%= waLink(w.couple_phone, 'Bonjour ' + names + ' 💍 ! C\'est ' + (contribSuccess.name || 'un invité') + '. Je viens de vous envoyer un cadeau de ' + fmtMoney(contribSuccess.amount) + ' via ' + (contribSuccess.provider === 'om' ? 'Orange Money' : 'MTN MoMo') + ' pour votre mariage.' + (contribSuccess.message ? ' « ' + contribSuccess.message + ' »' : '') + ' 🎉') %>">
+            <i class="fa-brands fa-whatsapp"></i> Informer les mariés sur WhatsApp
+          </a>
+        <% } %>
       </div>
-      <label>Montant (FCFA)<input name="amount" id="amount" inputmode="numeric" required placeholder="10 000"></label>
-      <label>Votre nom<input name="name" maxlength="100" value="<%= guest ? guest.name : '' %>" placeholder="Ou laissez vide pour rester anonyme"></label>
-      <label>Numéro MoMo / Orange Money<input name="phone" type="tel" inputmode="tel" placeholder="657664546"></label>
-      <label>Un petit mot (facultatif)<input name="message" maxlength="300"></label>
-      <button class="btn btn-gold btn-block" <%= isDraft ? 'disabled' : '' %>><i class="fa-solid fa-mobile-screen-button"></i> Offrir via MTN MoMo / Orange Money</button>
-      <p class="pay-logos"><span class="momo">MTN MoMo</span><span class="om">Orange Money</span> · <i class="fa-solid fa-lock"></i> paiement sécurisé</p>
-    </form>
     <% } %>
 
-    <% if (w.momo_number || w.om_number) { %>
-      <div class="manual">
-        <p class="small-caps"><i class="fa-solid fa-arrow-right-arrow-left"></i> Ou par transfert direct</p>
-        <% if (w.momo_number) { %>
-          <div class="pay-line momo-line"><span>MTN MoMo</span><b><%= prettyPhone(w.momo_number) %></b><% if (w.momo_name) { %><small><%= w.momo_name %></small><% } %><button class="copy" data-copy="<%= w.momo_number.slice(3) %>"><i class="fa-regular fa-copy"></i> Copier</button></div>
-        <% } %>
-        <% if (w.om_number) { %>
-          <div class="pay-line om-line"><span>Orange Money</span><b><%= prettyPhone(w.om_number) %></b><% if (w.om_name) { %><small><%= w.om_name %></small><% } %><button class="copy" data-copy="<%= w.om_number.slice(3) %>"><i class="fa-regular fa-copy"></i> Copier</button></div>
-        <% } %>
+    <% if (error === 'amount') { %><p class="alert"><i class="fa-solid fa-triangle-exclamation"></i> Montant minimum : 500 FCFA.</p><% } %>
+
+    <%
+      const hasMomo = Boolean(w.momo_number);
+      const hasOm = Boolean(w.om_number);
+      const defaultOp = hasMomo ? 'momo' : (hasOm ? 'om' : 'momo');
+      const momoClean = localPhone(w.momo_number);
+      const omClean = localPhone(w.om_number);
+    %>
+
+    <% if (!hasMomo && !hasOm) { %>
+      <div class="card" style="text-align:center;padding:2rem 1.2rem">
+        <i class="fa-solid fa-mobile-screen-button" style="font-size:2rem;color:var(--accent);margin-bottom:.8rem;display:block"></i>
+        <p class="muted">Les coordonnées MoMo / Orange Money seront bientôt disponibles.</p>
+      </div>
+    <% } else { %>
+      <div class="card cagnotte-card" id="cagnotteCard"
+           data-momo="<%= momoClean %>" data-om="<%= omClean %>"
+           data-momo-name="<%= w.momo_name || '' %>" data-om-name="<%= w.om_name || '' %>">
+
+        <!-- Étape 1 : Montant -->
+        <div class="cagnotte-step">
+          <span class="step-badge">1</span>
+          <label class="step-label" for="amount">Choisissez le montant de votre cadeau</label>
+        </div>
+
+        <div class="amounts">
+          <% [5000, 10000, 25000, 50000].forEach(function(a) { %>
+            <button type="button" class="chip <%= a === 10000 ? 'active' : '' %>" data-amount="<%= a %>"><%= fmtMoney(a) %></button>
+          <% }) %>
+        </div>
+        <div class="amount-input-wrap">
+          <input name="custom_amount" id="amount" inputmode="numeric" value="10000" placeholder="10 000" required>
+          <span class="currency-tag">FCFA</span>
+        </div>
+
+        <!-- Étape 2 : Opérateur -->
+        <div class="cagnotte-step" style="margin-top:1.4rem">
+          <span class="step-badge">2</span>
+          <span class="step-label">Choisissez votre opérateur</span>
+        </div>
+
+        <div class="operator-selector">
+          <% if (hasMomo) { %>
+            <label class="operator-card <%= defaultOp === 'momo' ? 'active' : '' %>" data-op="momo">
+              <input type="radio" name="op_choice" value="momo" <%= defaultOp === 'momo' ? 'checked' : '' %>>
+              <div class="op-radio-dot"></div>
+              <div class="op-info">
+                <span class="op-name"><span class="momo-badge">MTN</span> MoMo</span>
+                <span class="op-phone"><%= prettyPhone(w.momo_number) %><% if (w.momo_name) { %><br><b><%= w.momo_name %></b><% } %></span>
+              </div>
+            </label>
+          <% } %>
+
+          <% if (hasOm) { %>
+            <label class="operator-card <%= defaultOp === 'om' ? 'active' : '' %>" data-op="om">
+              <input type="radio" name="op_choice" value="om" <%= defaultOp === 'om' ? 'checked' : '' %>>
+              <div class="op-radio-dot"></div>
+              <div class="op-info">
+                <span class="op-name"><span class="om-badge">Orange</span> Money</span>
+                <span class="op-phone"><%= prettyPhone(w.om_number) %><% if (w.om_name) { %><br><b><%= w.om_name %></b><% } %></span>
+              </div>
+            </label>
+          <% } %>
+        </div>
+
+        <!-- Étape 3 : Composer le code USSD (Bouton d'appel mobile + Copie) -->
+        <div class="ussd-action-box">
+          <a href="tel:*126*1*1*<%= momoClean || omClean %>*10000%23" id="ussdDialBtn" class="btn btn-ussd op-<%= defaultOp %>">
+            <i class="fa-solid fa-phone"></i> <span id="ussdBtnLabel">Composer le code <%= defaultOp === 'om' ? 'Orange' : 'MoMo' %> (10 000 FCFA)</span>
+          </a>
+          <p class="ussd-hint"><i class="fa-solid fa-mobile-screen"></i> Ouvre directement votre clavier d'appel avec le code pré-rempli. Entrez simplement votre code secret pour valider.</p>
+
+          <div class="ussd-copy-box">
+            <span class="ussd-copy-label">Ou copiez ce code pour le composer :</span>
+            <div class="ussd-code-display">
+              <code id="ussdCodeText"><%= defaultOp === 'om' ? '#150*1*1*' + omClean + '*10000#' : '*126*1*1*' + momoClean + '*10000#' %></code>
+              <button type="button" class="btn-copy-code" id="copyUssdBtn" data-copy="<%= defaultOp === 'om' ? '#150*1*1*' + omClean + '*10000#' : '*126*1*1*' + momoClean + '*10000#' %>">
+                <i class="fa-regular fa-copy"></i> Copier
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Étape 4 : Confirmer le transfert aux mariés -->
+        <form method="post" action="/i/<%= w.slug %>/cagnotte" class="cagnotte-confirm-form">
+          <input type="hidden" name="amount" id="formAmount" value="10000">
+          <input type="hidden" name="operator" id="formOperator" value="<%= defaultOp %>">
+
+          <div class="cagnotte-step" style="margin-top:1.5rem">
+            <span class="step-badge">3</span>
+            <span class="step-label">Confirmez votre cadeau pour le livre d'or</span>
+          </div>
+
+          <label>Votre nom complet ou famille
+            <input name="name" maxlength="100" value="<%= guest ? guest.name : '' %>" placeholder="Ex : M. & Mme Eto'o ou Laissez vide pour anonyme">
+          </label>
+          <label>Votre numéro de téléphone (facultatif)
+            <input name="phone" type="tel" inputmode="tel" placeholder="6XX XX XX XX" value="<%= guest && guest.phone ? prettyPhone(guest.phone) : '' %>">
+          </label>
+          <label>Votre message de félicitations
+            <textarea name="message" rows="2" maxlength="300" placeholder="Tous nos vœux de bonheur pour votre nouvelle vie…"></textarea>
+          </label>
+          <button class="btn btn-gold btn-block" <%= isDraft ? 'disabled' : '' %> style="margin-top:.8rem">
+            <i class="fa-solid fa-heart"></i> J'ai effectué mon transfert
+          </button>
+        </form>
       </div>
     <% } %>
   </section>
@@ -244,6 +340,6 @@
   </nav>
 
 <div class="lightbox" id="lightbox" hidden><img alt=""><button aria-label="Fermer">✕</button></div>
-<script src="/static/js/invite.js?v=9.0" defer></script>
+<script src="/static/js/invite.js?v=10.0" defer></script>
 </body>
 </html>
