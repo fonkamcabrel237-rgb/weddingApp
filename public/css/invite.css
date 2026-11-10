@@ -131,46 +131,64 @@ body.locked, html:has(body.locked) { overflow:hidden; }
 
 .progress { height: 12px; border-radius: 99px; background: var(--bg2); border:1px solid var(--line); overflow:hidden; margin: 1rem 0 .4rem; }
 .progress div { height:100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius:99px; transition: width 1s; }
-.amounts { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom: .9rem; }
-.chip { padding:.5rem .8rem; border-radius:999px; border:1px solid var(--line); background: var(--bg); color: var(--text); cursor:pointer; font: 500 .85rem Inter, sans-serif; }
-.chip.active { background: var(--accent); color: var(--btn-text); border-color: var(--accent); }
+.amounts { display:grid; grid-template-columns: repeat(2, 1fr); gap:.5rem; margin-bottom: .65rem; }
+@media (min-width: 480px) { .amounts { grid-template-columns: repeat(4, 1fr); } }
+.chip { width: 100%; padding:.65rem .5rem; border-radius:12px; border:1px solid var(--line); background: var(--bg); color: var(--text); cursor:pointer; font: 600 .88rem Inter, sans-serif; text-align:center; transition: all .18s ease; }
+.chip.active { background: var(--accent); color: var(--btn-text); border-color: var(--accent); box-shadow: 0 4px 12px -4px var(--accent); }
 
 /* ===== Cagnotte Directe USSD (Mobile-First) ===== */
-.cagnotte-card { width: 100%; max-width: 540px; margin: 0 auto; text-align: left; }
-.cagnotte-step { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
-.step-badge { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--btn-text); font: 700 .75rem Inter, sans-serif; display: grid; place-items: center; flex: none; }
-.step-label { font: 600 .92rem Inter, sans-serif; color: var(--text); }
+.cagnotte-card { width: 100%; max-width: 540px; margin: 0 auto; text-align: left; padding: 1.4rem 1.2rem; }
+.cagnotte-step { display: flex; align-items: center; gap: .65rem; margin-bottom: .75rem; }
+.step-badge { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--btn-text); font: 700 .8rem Inter, sans-serif; display: grid; place-items: center; flex: none; }
+.step-label { font: 600 .95rem/1.3 Inter, sans-serif; color: var(--text); margin: 0 !important; }
 
-.amount-input-wrap { position: relative; width: 100%; margin-top: .4rem; }
-.amount-input-wrap input { font-size: 1.25rem !important; font-weight: 700 !important; padding-right: 68px !important; }
-.currency-tag { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 700 .85rem Inter, sans-serif; color: var(--accent); pointer-events: none; }
+.amount-input-wrap { position: relative; width: 100%; margin-top: .2rem; }
+.amount-input-wrap input {
+  display: block; width: 100%; max-width: 100%; margin: 0;
+  padding: .85rem 4.5rem .85rem 1rem; border-radius: 14px;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--text);
+  font: 700 1.3rem Inter, sans-serif; transition: border-color .2s ease;
+}
+.amount-input-wrap input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.currency-tag { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font: 700 .88rem Inter, sans-serif; color: var(--accent); pointer-events: none; }
 
-.operator-selector { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; margin-top: .4rem; margin-bottom: 1.2rem; }
-.operator-card { display: flex; align-items: center; gap: .75rem; padding: .85rem .9rem; border: 1.5px solid var(--line); border-radius: 14px; background: var(--bg); cursor: pointer; transition: all .2s ease; position: relative; }
-.operator-card input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
-.op-radio-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--muted); position: relative; flex: none; }
-.operator-card.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+.operator-selector { display: grid; grid-template-columns: 1fr; gap: .6rem; margin-top: .4rem; margin-bottom: 1.25rem; }
+@media (min-width: 480px) { .operator-selector { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); } }
+.operator-card { display: flex !important; align-items: center; gap: .8rem; padding: .9rem 1rem; margin: 0 !important; border: 1.5px solid var(--line); border-radius: 14px; background: var(--bg); cursor: pointer; transition: all .2s ease; position: relative; }
+.operator-card input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+.op-radio-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--muted); position: relative; flex: none; }
+.operator-card.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); box-shadow: 0 6px 16px -8px var(--accent); }
 .operator-card.active .op-radio-dot { border-color: var(--accent); }
 .operator-card.active .op-radio-dot::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent); }
-.op-info { display: flex; flex-direction: column; min-width: 0; }
-.op-name { font: 700 .9rem Inter, sans-serif; color: var(--text); }
-.momo-badge { background: #ffcc00; color: #000; padding: 2px 6px; border-radius: 5px; font-size: .72rem; font-weight: 800; margin-right: 4px; }
-.om-badge { background: #ff7900; color: #fff; padding: 2px 6px; border-radius: 5px; font-size: .72rem; font-weight: 800; margin-right: 4px; }
-.op-phone { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.op-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.op-title-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.op-name { font: 700 .95rem Inter, sans-serif; color: var(--text); }
+.momo-badge { background: #ffcc00; color: #000; padding: 2px 7px; border-radius: 6px; font: 800 .72rem Inter, sans-serif; letter-spacing: .02em; }
+.om-badge { background: #ff7900; color: #fff; padding: 2px 7px; border-radius: 6px; font: 800 .72rem Inter, sans-serif; letter-spacing: .02em; }
+.op-phone { font-size: .82rem; color: var(--muted); overflow-wrap: anywhere; line-height: 1.35; }
+.op-phone b { color: var(--text); font-weight: 600; }
 
-.ussd-action-box { background: color-mix(in srgb, var(--bg2) 90%, var(--accent) 10%); border: 1.5px solid var(--accent); border-radius: 18px; padding: 1.15rem 1rem; margin: 1.2rem 0; text-align: center; }
-.btn-ussd { width: 100%; min-height: 50px; border-radius: 999px; border: none; font: 700 1rem Inter, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; text-decoration: none; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 8px 20px -6px rgba(0,0,0,.35); line-height: 1.3; text-align: center; padding: .75rem 1rem; }
+.ussd-action-box { background: color-mix(in srgb, var(--bg2) 92%, var(--accent) 8%); border: 1.5px solid var(--accent); border-radius: 18px; padding: 1.2rem 1rem; margin: 1.2rem 0; text-align: center; }
+.btn-ussd { width: 100%; min-height: 52px; border-radius: 999px; border: none; font: 700 .98rem Inter, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: .55rem; text-decoration: none; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 8px 20px -6px rgba(0,0,0,.35); line-height: 1.3; text-align: center; padding: .8rem 1.1rem; }
 .btn-ussd:hover { transform: translateY(-2px); }
 .btn-ussd:active { transform: translateY(0) scale(.98); }
 .btn-ussd.op-momo { background: #ffcc00; color: #111; }
 .btn-ussd.op-om { background: #ff7900; color: #fff; }
-.ussd-hint { font-size: .78rem; color: var(--muted); margin: .7rem 0 .9rem; line-height: 1.4; }
-.ussd-copy-box { border-top: 1px dashed var(--line); padding-top: .75rem; }
-.ussd-copy-label { font-size: .76rem; color: var(--muted); display: block; margin-bottom: .4rem; }
-.ussd-code-display { display: flex; align-items: center; justify-content: space-between; gap: .5rem; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: .45rem .65rem; }
-.ussd-code-display code { font-family: monospace; font-size: .95rem; font-weight: 700; color: var(--accent); overflow-wrap: anywhere; }
-.btn-copy-code { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 999px; padding: .35rem .75rem; font: 600 .8rem Inter, sans-serif; cursor: pointer; white-space: nowrap; transition: background .2s ease; }
-.btn-copy-code:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.ussd-hint { font-size: .8rem; color: var(--muted); margin: .75rem 0 .95rem; line-height: 1.45; }
+.ussd-copy-box { border-top: 1px dashed var(--line); padding-top: .85rem; }
+.ussd-copy-label { font-size: .78rem; color: var(--muted); display: block; margin-bottom: .5rem; }
+.ussd-code-display { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: .65rem .75rem; }
+@media (min-width: 440px) {
+  .ussd-code-display { flex-direction: row; align-items: center; justify-content: space-between; }
+}
+.ussd-code-display code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .95rem; font-weight: 700; color: var(--accent); text-align: center; white-space: nowrap; overflow-x: auto; padding: .15rem 0; }
+.btn-copy-code { border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); border-radius: 999px; padding: .45rem .9rem; font: 600 .82rem Inter, sans-serif; cursor: pointer; white-space: nowrap; transition: background .2s ease; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; }
+.btn-copy-code:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+
+.cagnotte-confirm-form { border-top: 1px solid var(--line); padding-top: 1.3rem; margin-top: 1.3rem; }
+.cagnotte-confirm-form label { display: block; font-size: .88rem; font-weight: 500; margin-bottom: .9rem; color: var(--muted); }
+.cagnotte-confirm-form input, .cagnotte-confirm-form textarea { display: block; width: 100%; max-width: 100%; margin-top: .35rem; padding: .85rem .95rem; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: 1rem Inter, sans-serif; }
+.cagnotte-confirm-form input:focus, .cagnotte-confirm-form textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
 .cagnotte-success-card { text-align: center; background: color-mix(in srgb, var(--accent) 10%, var(--card)); border: 1.5px solid var(--accent); margin: 0 auto 1.5rem; max-width: 540px; padding: 1.6rem 1.2rem; }
 .cagnotte-success-icon { width: 58px; height: 58px; margin: 0 auto .8rem; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--btn-text); display: grid; place-items: center; font-size: 1.6rem; box-shadow: 0 8px 24px -6px var(--accent); }

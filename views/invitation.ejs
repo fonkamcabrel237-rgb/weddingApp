@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Great+Vibes&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="/static/css/invite.css?v=10.0">
+  <link rel="stylesheet" href="/static/css/invite.css?v=11.0">
 </head>
 <body class="theme-<%= w.theme || 'royal' %>" <% if (w.theme === 'custom') { %>style="<%= customThemeStyle(w) %>"<% } %>>
 
@@ -250,8 +250,11 @@
               <input type="radio" name="op_choice" value="momo" <%= defaultOp === 'momo' ? 'checked' : '' %>>
               <div class="op-radio-dot"></div>
               <div class="op-info">
-                <span class="op-name"><span class="momo-badge">MTN</span> MoMo</span>
-                <span class="op-phone"><%= prettyPhone(w.momo_number) %><% if (w.momo_name) { %><br><b><%= w.momo_name %></b><% } %></span>
+                <div class="op-title-row">
+                  <span class="momo-badge">MTN</span>
+                  <span class="op-name">Mobile Money</span>
+                </div>
+                <span class="op-phone"><%= prettyPhone(w.momo_number) %><% if (w.momo_name) { %> · <b><%= w.momo_name %></b><% } %></span>
               </div>
             </label>
           <% } %>
@@ -261,8 +264,11 @@
               <input type="radio" name="op_choice" value="om" <%= defaultOp === 'om' ? 'checked' : '' %>>
               <div class="op-radio-dot"></div>
               <div class="op-info">
-                <span class="op-name"><span class="om-badge">Orange</span> Money</span>
-                <span class="op-phone"><%= prettyPhone(w.om_number) %><% if (w.om_name) { %><br><b><%= w.om_name %></b><% } %></span>
+                <div class="op-title-row">
+                  <span class="om-badge">Orange</span>
+                  <span class="op-name">Orange Money</span>
+                </div>
+                <span class="op-phone"><%= prettyPhone(w.om_number) %><% if (w.om_name) { %> · <b><%= w.om_name %></b><% } %></span>
               </div>
             </label>
           <% } %>
@@ -280,14 +286,14 @@
             <div class="ussd-code-display">
               <code id="ussdCodeText"><%= defaultOp === 'om' ? '#150*1*1*' + omClean + '*10000#' : '*126*1*1*' + momoClean + '*10000#' %></code>
               <button type="button" class="btn-copy-code" id="copyUssdBtn" data-copy="<%= defaultOp === 'om' ? '#150*1*1*' + omClean + '*10000#' : '*126*1*1*' + momoClean + '*10000#' %>">
-                <i class="fa-regular fa-copy"></i> Copier
+                <i class="fa-regular fa-copy"></i> Copier le code
               </button>
             </div>
           </div>
         </div>
 
         <!-- Étape 4 : Confirmer le transfert aux mariés -->
-        <form method="post" action="/i/<%= w.slug %>/cagnotte" class="cagnotte-confirm-form">
+        <form method="post" action="/i/<%= w.slug %>/cagnotte" class="form cagnotte-confirm-form">
           <input type="hidden" name="amount" id="formAmount" value="10000">
           <input type="hidden" name="operator" id="formOperator" value="<%= defaultOp %>">
 
