@@ -133,6 +133,7 @@
             <% if (g.status === 'yes') { %>
               <a class="cp-btn sq" target="_blank" href="/i/<%= w.slug %>/pass/<%= g.token %>" title="Voir le Pass QR (Nom + Table)" aria-label="Pass d'entrée"><i class="fa-solid fa-qrcode"></i></a>
             <% } %>
+            <button type="button" class="cp-btn sq edit-guest-btn" data-id="<%= g.id %>" data-name="<%= g.name %>" data-phone="<%= g.phone ? prettyPhone(g.phone) : '' %>" data-seats="<%= g.seats %>" title="Modifier l'invité" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
             <form method="post" action="/espace/<%= w.slug %>/invites/<%= g.id %>/delete" onsubmit="return confirm('Supprimer <%= g.name.replace(/'/g, '') %> ?')">
               <button class="cp-btn sq del" aria-label="Supprimer"><i class="fa-regular fa-trash-can"></i></button>
             </form>
@@ -467,6 +468,100 @@
           copyBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
           setTimeout(function () { copyBtn.innerHTML = html; }, 1600);
         }).catch(function () { prompt('Copiez le texte :', copyBtn.dataset.copy); });
+      }
+    });
+  })();
+</script>
+
+<!-- Modal Édition Invité (Mobile-First, UI/UX premium) -->
+<div class="cp-modal-backdrop" id="editGuestModal" role="dialog" aria-modal="true" aria-labelledby="editGuestTitle" hidden>
+  <div class="cp-modal-sheet">
+    <div class="cp-modal-head">
+      <div class="cp-modal-title-wrap">
+        <div class="cp-modal-icon-badge"><i class="fa-solid fa-user-pen"></i></div>
+        <div>
+          <h3 id="editGuestTitle" style="margin:0;font-size:1.25rem">Modifier l'invité</h3>
+          <p class="small muted" style="margin:2px 0 0">Nom, numéro WhatsApp & places</p>
+        </div>
+      </div>
+      <button type="button" class="cp-modal-close" id="closeEditGuestModal" aria-label="Fermer">✕</button>
+    </div>
+
+    <form method="post" id="editGuestForm" action="" class="form" style="margin-top:1.1rem">
+      <label>Nom complet ou famille
+        <input name="name" id="editGuestName" required maxlength="120" placeholder="Ex: M. & Mme Eto'o">
+      </label>
+      <label>Numéro WhatsApp / Téléphone
+        <input name="phone" id="editGuestPhone" type="tel" inputmode="tel" placeholder="6XX XX XX XX">
+      </label>
+      <label>Nombre de places prévues
+        <select name="seats" id="editGuestSeats">
+          <% for (let n = 1; n <= 10; n++) { %>
+            <option value="<%= n %>"><%= n %> place<%= n > 1 ? 's' : '' %></option>
+          <% } %>
+        </select>
+      </label>
+      <div class="cp-modal-actions" style="margin-top:1.2rem;display:flex;gap:8px">
+        <button type="button" class="cp-btn" id="cancelEditGuest" style="flex:1">Annuler</button>
+        <button type="submit" class="cp-btn gold" style="flex:1.4"><i class="fa-solid fa-check"></i> Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function() {
+    var modal = document.getElementById('editGuestModal');
+    var form = document.getElementById('editGuestForm');
+    var nameInput = document.getElementById('editGuestName');
+    var phoneInput = document.getElementById('editGuestPhone');
+    var seatsSelect = document.getElementById('editGuestSeats');
+    var closeBtn = document.getElementById('closeEditGuestModal');
+    var cancelBtn = document.getElementById('cancelEditGuest');
+
+    if (!modal || !form) return;
+
+    function openEditModal(btn) {
+      var id = btn.getAttribute('data-id');
+      var name = btn.getAttribute('data-name') || '';
+      var phone = btn.getAttribute('data-phone') || '';
+      var seats = btn.getAttribute('data-seats') || '1';
+
+      form.action = '/espace/<%= w.slug %>/invites/' + id + '/update';
+      nameInput.value = name;
+      phoneInput.value = phone;
+      if (seatsSelect) seatsSelect.value = seats;
+
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-active');
+      document.body.style.overflow = 'hidden';
+      nameInput.focus();
+    }
+
+    function closeEditModal() {
+      modal.classList.remove('is-active');
+      modal.setAttribute('hidden', '');
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('click', function(e) {
+      var editBtn = e.target.closest('.edit-guest-btn');
+      if (editBtn) {
+        e.preventDefault();
+        openEditModal(editBtn);
+      }
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeEditModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeEditModal);
+
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeEditModal();
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal.classList.contains('is-active')) {
+        closeEditModal();
       }
     });
   })();

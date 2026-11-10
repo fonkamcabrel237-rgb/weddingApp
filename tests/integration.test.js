@@ -264,3 +264,39 @@ test('NIVEAU 2.4 — Espace Mariés : Protection d’accès & Check-in QR le jou
   // Nettoyage
   q.run('DELETE FROM guests WHERE token = ?', token);
 });
+
+test("NIVEAU 2.5 — Modification des informations d'un invité (Nom, Téléphone, Places)", async () => {
+  const w = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
+
+  const loginRes = await request('/espace/demo/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `key=${w.access_key}`,
+  });
+  const cookieHeader = loginRes.cookies.find(c => c.startsWith(`c${w.id}=`));
+  const cookieVal = cookieHeader.split(';')[0];
+
+  const invited = addGuest(w.id, { name: 'Paul Biya', phone: '655000000', seats: 1, category: 'famille_mariee' });
+
+  const updateRes = await request(`/espace/demo/invites/${invited.id}/update`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Cookie': cookieVal,
+    },
+    body: new URLSearchParams({
+      name: 'Président Paul',
+      phone: '657664546',
+      seats: '3',
+    }).toString(),
+  });
+  assert.strictEqual(updateRes.status, 302);
+  assert.ok(updateRes.headers.get('location').includes('ok='), 'Doit rediriger avec message de succès');
+
+  const updated = q.get('SELECT * FROM guests WHERE id = ?', invited.id);
+  assert.strictEqual(updated.name, 'Président Paul');
+  assert.strictEqual(updated.phone, '237657664546');
+  assert.strictEqual(updated.seats, 3);
+
+  q.run('DELETE FROM guests WHERE id = ?', invited.id);
+});

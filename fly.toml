@@ -11,6 +11,7 @@ primary_region = "cdg"
   BRAND_NAME = "Ndolo Invitations"
   BUSINESS_WHATSAPP = "237657664546"
   BUSINESS_EMAIL = "contact@ndolos.site"
+  ADMIN_PASSWORD = "change-moi"
 
 [http_service]
   internal_port = 3000

@@ -199,3 +199,111 @@ body.couple { background: var(--bg); padding-bottom: calc(76px + env(safe-area-i
   .cp-sender { top: 66px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- Modal Édition Invité (Mobile-First) ---------- */
+.cp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(18, 14, 10, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, visibility .25s ease;
+}
+
+.cp-modal-backdrop.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.cp-modal-sheet {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 440px;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(184, 145, 63, 0.15);
+  transform: translateY(20px) scale(0.96);
+  transition: transform .28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cp-modal-backdrop.is-active .cp-modal-sheet {
+  transform: translateY(0) scale(1);
+}
+
+.cp-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.9rem;
+}
+
+.cp-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cp-modal-icon-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #fdf6e7;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+}
+
+.cp-modal-close {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+  border-radius: 8px;
+}
+
+.cp-modal-close:hover {
+  color: var(--ink);
+  background: #f4efe6;
+}
+
+.cp-modal-sheet label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.85rem;
+}
+
+.cp-modal-sheet input,
+.cp-modal-sheet select {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #faf7f2;
+  color: var(--ink);
+  font: 500 0.95rem Inter, system-ui, sans-serif;
+  box-sizing: border-box;
+}
+
+.cp-modal-sheet input:focus,
+.cp-modal-sheet select:focus {
+  outline: 2px solid var(--gold);
+  border-color: transparent;
+  background: #ffffff;
+}

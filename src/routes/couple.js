@@ -145,6 +145,43 @@ router.post('/:slug/invites/:id/assign', guard, (req, res) => {
   res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(msg)}#invites`);
 });
 
+// Modification des informations d'un invité (Nom, Téléphone, Places)
+router.post('/:slug/invites/:id/update', guard, (req, res) => {
+  const w = req.w;
+  const guest = q.get('SELECT * FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, w.id);
+  if (!guest) return res.redirect(`/espace/${w.slug}#invites`);
+
+  const name = String(req.body.name || '').trim().slice(0, 120);
+  if (!name) {
+    return res.redirect(`/espace/${w.slug}?err=${encodeURIComponent("Le nom de l'invité ne peut pas être vide.")}#invites`);
+  }
+
+  const phone = U.normalizePhone(req.body.phone) || null;
+  const newSeats = Math.max(1, Math.min(20, parseInt(req.body.seats, 10) || 1));
+  const currentStats = stats(w.id);
+
+  const oldActiveSeats = guest.status === 'no' ? 0 : (guest.status === 'yes' && guest.attending_count ? guest.attending_count : guest.seats);
+  const newActiveSeats = guest.status === 'no' ? 0 : (guest.status === 'yes' && guest.attending_count ? guest.attending_count : newSeats);
+  const diffSeats = newActiveSeats - oldActiveSeats;
+
+  if (diffSeats > 0 && currentStats.guests.activeSeats + diffSeats > (w.max_guests || 200)) {
+    return res.redirect(
+      `/espace/${w.slug}?err=${encodeURIComponent(`Impossible d'attribuer ${newSeats} places : dépassement du quota maximum de ${w.max_guests} places.`)}#invites`
+    );
+  }
+
+  q.run(
+    'UPDATE guests SET name = ?, phone = ?, seats = ? WHERE id = ? AND wedding_id = ?',
+    name, phone, newSeats, guest.id, w.id
+  );
+
+  if (guest.table_id) {
+    recomputeTableSeats(guest.table_id);
+  }
+
+  res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(`Invité « ${name} » modifié avec succès`)}#invites`);
+});
+
 router.post('/:slug/invites/:id/delete', guard, (req, res) => {
   const guest = q.get('SELECT * FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
   q.run('DELETE FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
