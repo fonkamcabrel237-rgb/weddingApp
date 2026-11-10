@@ -5,7 +5,60 @@
       <a href="/admin"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></a>
       <a href="/admin/mariages/new" class="btn btn-gold btn-sm"><i class="fa-solid fa-plus"></i> <span>Nouveau</span></a>
       <a href="/" target="_blank" class="topbar-link-subtle"><i class="fa-solid fa-arrow-up-right-from-square"></i> <span>Site</span></a>
-      <a href="/admin/logout" class="topbar-link-danger"><i class="fa-solid fa-right-from-bracket"></i></a>
+      <button type="button" class="topbar-link-danger topbar-logout-btn" id="openLogoutModal" aria-label="Se déconnecter" title="Se déconnecter">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>
     </nav>
   </div>
 </div>
+
+<!-- Modal Pop-up Déconnexion (Mobile-first, UI/UX premium) -->
+<div class="admin-logout-modal-backdrop" id="adminLogoutModal" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
+  <div class="admin-logout-sheet">
+    <div class="admin-logout-icon">
+      <i class="fa-solid fa-arrow-right-from-bracket"></i>
+    </div>
+    <h3 id="logoutModalTitle">Déconnexion</h3>
+    <p>Souhaitez-vous vraiment fermer votre session administrateur ?</p>
+    <div class="admin-logout-actions">
+      <button type="button" class="btn-logout-cancel" id="closeLogoutModal">Annuler</button>
+      <a href="/admin/logout" class="btn-logout-confirm">
+        <i class="fa-solid fa-right-from-bracket"></i> Se déconnecter
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const modal = document.getElementById('adminLogoutModal');
+    const openBtn = document.getElementById('openLogoutModal');
+    const closeBtn = document.getElementById('closeLogoutModal');
+    if (!modal || !openBtn) return;
+
+    function openModal() {
+      modal.classList.add('is-active');
+      document.body.style.overflow = 'hidden';
+      if (closeBtn) closeBtn.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove('is-active');
+      document.body.style.overflow = '';
+      openBtn.focus();
+    }
+
+    openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal.classList.contains('is-active')) {
+        closeModal();
+      }
+    });
+  })();
+</script>
