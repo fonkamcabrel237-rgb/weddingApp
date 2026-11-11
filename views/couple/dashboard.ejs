@@ -474,7 +474,7 @@
 </script>
 
 <!-- Modal Édition Invité (Mobile-First, UI/UX premium) -->
-<div class="cp-modal-backdrop" id="editGuestModal" role="dialog" aria-modal="true" aria-labelledby="editGuestTitle" hidden>
+<div class="cp-modal-backdrop" id="editGuestModal" role="dialog" aria-modal="true" aria-labelledby="editGuestTitle" hidden style="display: none;">
   <div class="cp-modal-sheet">
     <div class="cp-modal-head">
       <div class="cp-modal-title-wrap">
@@ -533,6 +533,8 @@
       if (seatsSelect) seatsSelect.value = seats;
 
       modal.removeAttribute('hidden');
+      modal.style.display = 'flex';
+      void modal.offsetHeight;
       modal.classList.add('is-active');
       document.body.style.overflow = 'hidden';
       nameInput.focus();
@@ -542,6 +544,11 @@
       modal.classList.remove('is-active');
       modal.setAttribute('hidden', '');
       document.body.style.overflow = '';
+      setTimeout(function() {
+        if (!modal.classList.contains('is-active')) {
+          modal.style.display = 'none';
+        }
+      }, 250);
     }
 
     document.addEventListener('click', function(e) {
