@@ -3,14 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <% const names = coupleNames(w); const title = (guest ? guest.name + ', ' : '') + names + ' vous invitent'; const venueQuery = w.maps_query || [w.venue_name, w.venue_address, w.city].filter(Boolean).join(', '); %>
+  <%
+    const names = coupleNames(w);
+    const title = (guest ? guest.name + ', ' : '') + names + ' vous invitent';
+    const venueQuery = w.maps_query || [w.venue_name, w.venue_address, w.city].filter(Boolean).join(', ');
+    const desc = (w.event_date ? fmtDate(w.event_date) : '') + (w.city ? ' · ' + w.city : '') + ' — Ouvrez votre faire-part et confirmez votre présence.';
+    const inviteImg = w.cover_photo ? `${baseUrl}/uploads/${w.cover_photo}` : `${baseUrl}/static/img/og-cover.jpg`;
+    const canonicalUrl = inviteUrl(w, guest);
+  %>
   <title><%= names %> — <%= w.event_type === 'dot' ? 'Dot' : 'Mariage' %></title>
-  <meta name="description" content="<%= w.event_date ? fmtDate(w.event_date) : '' %><%= w.city ? ' · ' + w.city : '' %> — Confirmez votre présence en ligne.">
+  <meta name="description" content="<%= desc %>">
+
+  <!-- Open Graph / WhatsApp / Facebook -->
+  <meta property="og:site_name" content="<%= brand %>">
   <meta property="og:type" content="website">
   <meta property="og:title" content="💍 <%= title %>">
-  <meta property="og:description" content="<%= w.event_date ? fmtDate(w.event_date) : '' %><%= w.city ? ' · ' + w.city : '' %> — Ouvrez votre faire-part et confirmez votre présence.">
-  <meta property="og:url" content="<%= inviteUrl(w, guest) %>">
-  <% if (w.cover_photo) { %><meta property="og:image" content="<%= baseUrl %>/uploads/<%= w.cover_photo %>"><% } %>
+  <meta property="og:description" content="<%= desc %>">
+  <meta property="og:url" content="<%= canonicalUrl %>">
+  <meta property="og:image" content="<%= inviteImg %>">
+  <meta property="og:image:secure_url" content="<%= inviteImg %>">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="<%= names %> — Faire-part">
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="💍 <%= title %>">
+  <meta name="twitter:description" content="<%= desc %>">
+  <meta name="twitter:image" content="<%= inviteImg %>">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/static/img/favicon.png">
+  <link rel="apple-touch-icon" href="/static/img/favicon.png">
+
   <% if (isDraft) { %><meta name="robots" content="noindex"><% } %>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Great+Vibes&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
