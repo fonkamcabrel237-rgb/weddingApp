@@ -1,0 +1,142 @@
+<%- include('partials/head', {
+  title: 'Politique de confidentialité',
+  metaDesc: 'Politique de confidentialité de ' + brand + ' : détail transparent des données collectées (RSVP, cagnotte, commandes), cookies techniques, durée de conservation et procédure de suppression.'
+}) %>
+<% const waDeleteText = 'Bonjour ' + brand + ', je souhaite exercer mon droit de suppression / modification concernant mes données personnelles : '; %>
+
+<nav class="nav">
+  <div class="container">
+    <a class="logo" href="/"><i class="fa-solid fa-ring"></i> <%= brand.split(' ')[0] %><span>.</span></a>
+    <div class="nav-links">
+      <a href="/#fonctionnalites">Fonctionnalités</a>
+      <a href="/#tarifs">Tarifs</a>
+      <a class="btn btn-gold btn-sm" href="/#commander">Commander</a>
+    </div>
+  </div>
+</nav>
+
+<main class="container" style="max-width: 860px; padding: 2.5rem 1.25rem 4rem;">
+  <div style="margin-bottom: 2rem;">
+    <a href="/" class="small muted" style="text-decoration: none; display: inline-flex; align-items: center; gap: .4rem;">
+      <i class="fa-solid fa-arrow-left"></i> Retour à l'accueil
+    </a>
+    <h1 style="font-size: clamp(2rem, 5vw, 2.8rem); margin: .6rem 0 .4rem;">Politique de confidentialité</h1>
+    <p class="muted" style="margin: 0;">Dernière mise à jour : <%= new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) %> · Transparence &amp; respect de votre vie privée</p>
+  </div>
+
+  <div class="card" style="margin-bottom: 1.4rem; background: linear-gradient(135deg, #fffdf9, #f9f3e8); border-color: rgba(184, 145, 63, 0.35);">
+    <p style="margin: 0; font-size: .96rem;">
+      <i class="fa-solid fa-shield-halved" style="color: var(--gold); margin-right: .4rem;"></i>
+      Chez <strong><%= brand %></strong>, nous appliquons un principe strict : <strong>nous ne collectons que les informations indispensables au bon déroulement des mariages</strong>. Vos données ne sont jamais vendues, jamais louées et jamais utilisées à des fins publicitaires.
+    </p>
+  </div>
+
+  <!-- 1. Données collectées via les formulaires -->
+  <section class="card" style="margin-bottom: 1.4rem;">
+    <h2 style="font-size: 1.45rem; margin-bottom: .8rem;"><i class="fa-solid fa-clipboard-list" style="color: var(--gold); margin-right: .4rem;"></i> 1. Quelles données collectons-nous et pourquoi ?</h2>
+    <p class="muted" style="margin-top: 0;">Nous recueillons uniquement les informations saisies volontairement dans nos formulaires :</p>
+
+    <div style="display: grid; gap: 1rem;">
+      <div style="padding: 1rem; border-radius: 12px; background: var(--bg); border: 1px solid var(--line);">
+        <h3 style="font-size: 1.15rem; margin: 0 0 .35rem;">A. Formulaire de commande (Futurs mariés)</h3>
+        <p class="small" style="margin: 0 0 .4rem;"><strong>Données collectées :</strong> Prénoms des mariés, numéro de téléphone WhatsApp, adresse e-mail (facultative), date et lieu de la cérémonie, formule choisie, photos, musique et numéros Mobile Money / Orange Money destinés à la cagnotte.</p>
+        <p class="small muted" style="margin: 0;"><strong>Pourquoi :</strong> Créer et publier votre faire-part digital sur mesure, générer votre Espace Mariés privé et échanger avec vous sur WhatsApp pour valider vos personnalisations.</p>
+      </div>
+
+      <div style="padding: 1rem; border-radius: 12px; background: var(--bg); border: 1px solid var(--line);">
+        <h3 style="font-size: 1.15rem; margin: 0 0 .35rem;">B. Formulaire de réponse RSVP &amp; Livre d'or (Invités)</h3>
+        <p class="small" style="margin: 0 0 .4rem;"><strong>Données collectées :</strong> Nom complet (ou nom de famille), numéro WhatsApp, confirmation de présence (oui/non), nombre de personnes, table et numéro de siège attribués, message pour le livre d'or et horodatage d'entrée lors du scan du Pass QR le jour J.</p>
+        <p class="small muted" style="margin: 0;"><strong>Pourquoi :</strong> Permettre aux mariés d'organiser leur réception (nombre exact de repas, placement à table), vous délivrer votre Pass d'accès VIP nominatif et afficher vos vœux dans leur livre d'or.</p>
+      </div>
+
+      <div style="padding: 1rem; border-radius: 12px; background: var(--bg); border: 1px solid var(--line);">
+        <h3 style="font-size: 1.15rem; margin: 0 0 .35rem;">C. Formulaire de la Cagnotte des mariés (Invités)</h3>
+        <p class="small" style="margin: 0 0 .4rem;"><strong>Données collectées :</strong> Nom du donateur (ou « Anonyme »), numéro de téléphone (facultatif), montant déclaré, opérateur choisi (MTN MoMo ou Orange Money), référence du SMS de transaction (facultative) et message de félicitations.</p>
+        <p class="small muted" style="margin: 0;"><strong>Pourquoi :</strong> Informer les mariés de votre cadeau afin qu'ils puissent vérifier leur SMS de réception et valider le don dans leur suivi. <strong>Aucune coordonnée bancaire ni code secret Mobile Money n'est jamais demandé ou stocké sur ce site</strong> (le transfert s'effectue directement depuis le clavier d'appel USSD de votre téléphone).</p>
+      </div>
+
+      <div style="padding: 1rem; border-radius: 12px; background: var(--bg); border: 1px solid var(--line);">
+        <h3 style="font-size: 1.15rem; margin: 0 0 .35rem;">D. Sécurité technique anti-piratage</h3>
+        <p class="small" style="margin: 0;">En cas de tentatives de connexion infructueuses sur l'espace d'administration, l'adresse IP est retenue temporairement en mémoire vive pendant <strong>15 minutes</strong> afin de bloquer les attaques par force brute, puis effacée automatiquement.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Cookies -->
+  <section class="card" style="margin-bottom: 1.4rem;">
+    <h2 style="font-size: 1.45rem; margin-bottom: .8rem;"><i class="fa-solid fa-cookie-bite" style="color: var(--gold); margin-right: .4rem;"></i> 2. Cookies utilisés</h2>
+    <p style="margin-top: 0;">Ce site n'utilise <strong>aucun cookie publicitaire, commercial ou de profilage</strong>. Les invités qui consultent un faire-part, répondent à l'invitation ou participent à la cagnotte ne reçoivent aucun cookie de suivi.</p>
+    <p class="muted small">Seuls deux cookies techniques strictement nécessaires à la sécurité des sessions privées sont utilisés :</p>
+    <div class="table-wrap">
+      <table style="min-width: 100%;">
+        <thead>
+          <tr>
+            <th>Nom du cookie</th>
+            <th>Rôle</th>
+            <th>Durée</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>c[id]</code></td>
+            <td>Maintient la session ouverte des mariés dans leur Espace Mariés privé (cookie signé, <code>httpOnly</code>).</td>
+            <td>60 jours</td>
+          </tr>
+          <tr>
+            <td><code>adm</code></td>
+            <td>Maintient la session de l'administrateur de la plateforme (cookie signé, <code>httpOnly</code>).</td>
+            <td>30 jours</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 3. Outils de mesure & Services tiers -->
+  <section class="card" style="margin-bottom: 1.4rem;">
+    <h2 style="font-size: 1.45rem; margin-bottom: .8rem;"><i class="fa-solid fa-chart-simple" style="color: var(--gold); margin-right: .4rem;"></i> 3. Outils de mesure d'audience &amp; services tiers</h2>
+    <ul style="padding-left: 1.2rem; margin: 0; display: grid; gap: .6rem;">
+      <li><strong>Zéro traceur externe :</strong> Nous n'utilisons ni Google Analytics, ni Meta/Facebook Pixel, ni aucun outil de pistage publicitaire tiers.</li>
+      <li><strong>Compteur de vues interne et anonyme :</strong> Chaque faire-part dispose d'un simple compteur global (incrémenté de +1 à l'ouverture de la page) pour indiquer aux mariés combien de fois leur invitation a été vue, sans enregistrer l'identité ni l'adresse IP des visiteurs.</li>
+      <li><strong>Ressources d'affichage :</strong> Le site charge ses polices d'écriture via <em>Google Fonts</em>, ses icônes via <em>Cloudflare CDN (Font Awesome)</em> et permet d'ouvrir l'itinéraire du lieu de réception sur <em>Google Maps</em>.</li>
+      <li><strong>Hébergement sécurisé :</strong> La base de données et les photos sont hébergées sur un serveur privé sécurisé (Fly.io, région Europe — Paris) avec chiffrement HTTPS de bout en bout.</li>
+    </ul>
+  </section>
+
+  <!-- 4. Durée de conservation -->
+  <section class="card" style="margin-bottom: 1.4rem;">
+    <h2 style="font-size: 1.45rem; margin-bottom: .8rem;"><i class="fa-solid fa-clock-rotate-left" style="color: var(--gold); margin-right: .4rem;"></i> 4. Combien de temps conservons-nous vos données ?</h2>
+    <ul style="padding-left: 1.2rem; margin: 0; display: grid; gap: .6rem;">
+      <li><strong>Données liées à un mariage (faire-part, photos, invités, RSVP, livre d'or et cagnotte) :</strong> Conservées pendant la période des préparatifs et jusqu'à <strong>6 mois après la date de la cérémonie</strong>, afin de laisser aux mariés le temps d'exporter leur liste d'invités (CSV) et leurs messages de félicitations. Passé ce délai, ou plus tôt sur simple demande des mariés, l'événement et toutes ses données sont définitivement supprimés.</li>
+      <li><strong>Demandes de commande non finalisées :</strong> Supprimées au bout de <strong>12 mois</strong> maximum.</li>
+      <li><strong>Suppression immédiate par les mariés :</strong> Depuis leur Espace Mariés, les mariés disposent à tout moment d'un bouton de modification (✏️) et de suppression (🗑️) sur chaque invité et chaque contribution.</li>
+    </ul>
+  </section>
+
+  <!-- 5. Contact & Suppression -->
+  <section class="card" style="border: 1.5px solid var(--gold);">
+    <h2 style="font-size: 1.45rem; margin-bottom: .6rem;"><i class="fa-solid fa-user-shield" style="color: var(--gold); margin-right: .4rem;"></i> 5. Comment nous contacter pour modifier ou supprimer vos données ?</h2>
+    <p style="margin-top: 0;">Que vous soyez <strong>les mariés</strong> ou <strong>un invité</strong>, vous pouvez demander à tout moment la consultation, la correction ou la suppression immédiate et définitive de vos informations personnelles (nom, numéro de téléphone, réponse RSVP, photo ou message du livre d'or).</p>
+    <p class="small muted">Indiquez-nous simplement votre nom et le mariage concerné. Votre demande est traitée sous <strong>24h à 48h maximum</strong> :</p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem;">
+      <% if (businessWhatsapp) { %>
+        <a class="btn btn-wa" href="<%= waLink(businessWhatsapp, waDeleteText) %>" target="_blank" rel="noopener">
+          <i class="fa-brands fa-whatsapp"></i> Demander par WhatsApp (<%= prettyPhone(businessWhatsapp) %>)
+        </a>
+      <% } %>
+      <% if (businessEmail) { %>
+        <a class="btn btn-outline" href="mailto:<%= businessEmail %>?subject=Suppression%20ou%20modification%20de%20mes%20donn%C3%A9es">
+          <i class="fa-regular fa-envelope"></i> <%= businessEmail %>
+        </a>
+      <% } %>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  © <%= new Date().getFullYear() %> <%= brand %> · Faire-part digitaux au Cameroun ·
+  <a href="/confidentialite">Politique de confidentialité</a> ·
+  <a href="/admin"><i class="fa-solid fa-lock"></i> Espace pro</a>
+</footer>
+</body></html>

@@ -16,6 +16,10 @@ router.get('/', (req, res) => {
   res.render('landing', { demo, PLANS: U.PLANS, ref: req.query.ref || '' });
 });
 
+router.get('/confidentialite', (req, res) => {
+  res.render('privacy');
+});
+
 // Formulaire de commande -> crée automatiquement un brouillon de faire-part
 router.post('/commande', upload.array('photos', 30), async (req, res, next) => {
   try {

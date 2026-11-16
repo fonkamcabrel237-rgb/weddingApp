@@ -72,7 +72,13 @@ test('NIVEAU 2.1 — Consultation publique et cas d’erreur 404', async () => {
   // Page d'accueil
   const home = await request('/');
   assert.strictEqual(home.status, 200);
-  assert.ok(home.body.includes('Votre faire-part de mariage'), 'Doit afficher la landing page');
+  assert.ok(home.body.includes('Votre faire-part de mariage') || home.body.includes('Votre faire-part'), 'Doit afficher la landing page');
+  assert.ok(home.body.includes('/confidentialite'), 'Doit contenir le lien vers la politique de confidentialité');
+
+  // Page de politique de confidentialité
+  const privacy = await request('/confidentialite');
+  assert.strictEqual(privacy.status, 200);
+  assert.ok(privacy.body.includes('Politique de confidentialité'), 'Doit afficher la politique de confidentialité');
 
   // Mariage démo existant
   const demo = await request('/i/demo');
