@@ -28,11 +28,15 @@ h1, h2, h3 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600
 /* ===== Micro-animations & Boutons ===== */
 .btn { 
   display:inline-flex; align-items:center; justify-content:center; gap:.5rem; 
+  max-width: 100%; text-align: center;
   padding:.72rem 1.3rem; border-radius:999px; border:1px solid var(--ink); 
-  background: var(--ink); color:#fff; font: 600 .9rem Inter, sans-serif; 
+  background: var(--ink); color:#fff; font: 600 .9rem/1.35 Inter, sans-serif; 
   text-decoration:none; cursor:pointer; white-space: nowrap; 
   transition: all .25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 2px 6px rgba(0,0,0,.06);
+}
+@media (max-width: 560px) {
+  .btn { white-space: normal; }
 }
 .btn:hover { 
   transform: translateY(-2px); 

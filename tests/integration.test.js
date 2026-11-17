@@ -27,7 +27,7 @@ app.use((req, res, next) => {
   Object.assign(res.locals, utils, {
     brand: 'Ndolo Invitations',
     businessWhatsapp: '237657664546',
-    businessEmail: 'contact@ndolo.cm',
+    businessEmail: 'contact@ndolos.site',
     baseUrl: 'http://127.0.0.1:3001',
     paymentMode: 'demo',
     path: req.path,

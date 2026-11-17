@@ -131,13 +131,13 @@
 
     <div style="display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem;">
       <% if (businessWhatsapp) { %>
-        <a class="btn btn-wa" href="<%= waLink(businessWhatsapp, waDeleteText) %>" target="_blank" rel="noopener">
-          <i class="fa-brands fa-whatsapp"></i> Demander par WhatsApp (<%= prettyPhone(businessWhatsapp) %>)
+        <a class="btn btn-wa" style="flex: 1 1 240px; max-width: 100%; white-space: normal; text-align: center;" href="<%= waLink(businessWhatsapp, waDeleteText) %>" target="_blank" rel="noopener">
+          <i class="fa-brands fa-whatsapp"></i> <span>Demander par WhatsApp (<%= prettyPhone(businessWhatsapp) %>)</span>
         </a>
       <% } %>
       <% if (businessEmail) { %>
-        <a class="btn btn-outline" href="mailto:<%= businessEmail %>?subject=Suppression%20ou%20modification%20de%20mes%20donn%C3%A9es">
-          <i class="fa-regular fa-envelope"></i> <%= businessEmail %>
+        <a class="btn btn-outline" style="flex: 1 1 220px; max-width: 100%; white-space: normal; text-align: center;" href="mailto:<%= businessEmail %>?subject=Suppression%20ou%20modification%20de%20mes%20donn%C3%A9es">
+          <i class="fa-regular fa-envelope"></i> <span><%= businessEmail %></span>
         </a>
       <% } %>
     </div>

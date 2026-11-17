@@ -33,7 +33,7 @@ app.use((req, res, next) => {
   Object.assign(res.locals, utils, {
     brand: process.env.BRAND_NAME || 'Ndolo Invitations',
     businessWhatsapp: process.env.BUSINESS_WHATSAPP || '',
-    businessEmail: process.env.BUSINESS_EMAIL || '',
+    businessEmail: process.env.BUSINESS_EMAIL || 'contact@ndolos.site',
     baseUrl: utils.BASE_URL(),
     paymentMode: payments.mode(),
     path: req.path,
