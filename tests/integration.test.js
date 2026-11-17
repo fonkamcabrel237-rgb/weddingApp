@@ -306,3 +306,53 @@ test("NIVEAU 2.5 — Modification des informations d'un invité (Nom, Téléphon
 
   q.run('DELETE FROM guests WHERE id = ?', invited.id);
 });
+
+test('NIVEAU 2.6 — Conformité CNIL (Bandeau cookies) & Protection Anti-Spam (Honeypot + Rate Limiting)', async () => {
+  const { resetRateLimits } = require('../src/security');
+  resetRateLimits();
+
+  // 1. Vérifier la présence du bandeau CNIL (Accepter / Refuser équivalents + lien de réouverture)
+  const home = await request('/');
+  assert.strictEqual(home.status, 200);
+  assert.ok(home.body.includes('Tout refuser') && home.body.includes('Tout accepter'), 'Doit afficher les boutons Accepter et Refuser');
+  assert.ok(home.body.includes('Gérer mes cookies'), 'Doit inclure le lien pour modifier son choix plus tard');
+
+  // 2. Vérifier qu'aucun comptage de vue ne se déclenche sans consentement explicite
+  const beforeViews = q.get("SELECT views FROM weddings WHERE slug = 'demo'").views;
+  await request('/i/demo'); // Visite sans cookie ndolo_consent=accepted
+  const afterNoConsent = q.get("SELECT views FROM weddings WHERE slug = 'demo'").views;
+  assert.strictEqual(afterNoConsent, beforeViews, 'Ne doit pas incrémenter le compteur avant accord cookies');
+
+  await request('/i/demo', { headers: { Cookie: 'ndolo_consent=accepted' } });
+  const afterConsent = q.get("SELECT views FROM weddings WHERE slug = 'demo'").views;
+  assert.strictEqual(afterConsent, beforeViews + 1, 'Doit incrémenter le compteur après accord explicite');
+
+  // 3. Test du champ piège invisible (Honeypot) : un robot qui remplit `website_url` doit être bloqué (400)
+  const botRes = await request('/i/demo/cagnotte', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      name: 'SpamBot 3000',
+      amount: '50000',
+      operator: 'momo',
+      website_url: 'http://spam-casino.example.com',
+    }).toString(),
+  });
+  assert.strictEqual(botRes.status, 400, 'Doit rejeter immédiatement un robot qui remplit le champ piège');
+  const botContrib = q.get("SELECT * FROM contributions WHERE name = 'SpamBot 3000'");
+  assert.strictEqual(botContrib, undefined, 'Aucune donnée du robot ne doit être enregistrée en base');
+
+  // 4. Test de la limite d'envois (Rate Limiting)
+  resetRateLimits();
+  let lastStatus = 200;
+  for (let i = 0; i < 16; i++) {
+    const r = await request('/i/demo/rsvp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ name: 'Inconnu', attending: 'no' }).toString(),
+    });
+    lastStatus = r.status;
+  }
+  assert.strictEqual(lastStatus, 429, 'Doit bloquer avec HTTP 429 au-delà de la limite d\'envois autorisée');
+  resetRateLimits();
+});

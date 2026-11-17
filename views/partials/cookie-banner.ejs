@@ -1,0 +1,197 @@
+<!-- Bandeau de consentement aux cookies conforme aux recommandations de la CNIL -->
+<div class="cnil-cookie-banner" id="cnilCookieBanner" role="dialog" aria-live="polite" aria-label="Gestion des cookies et de la vie privée" style="display: none;">
+  <div class="cnil-cookie-inner">
+    <div class="cnil-cookie-text">
+      <div class="cnil-cookie-title">
+        <i class="fa-solid fa-cookie-bite" style="color: #b8913f;"></i>
+        <strong>Respect de votre vie privée</strong>
+        <span id="cnilCurrentStatus" class="cnil-status-badge" style="display: none;"></span>
+      </div>
+      <p>
+        Nous utilisons des cookies strictement nécessaires au fonctionnement du site (sécurité, sessions privées) et, uniquement avec votre accord, une mesure d'audience anonyme pour compter les visites. Aucun traceur n'est activé sans votre consentement. Vous pouvez changer d'avis à tout moment via le lien « Gérer mes cookies » en bas de page.
+        <a href="/confidentialite">En savoir plus</a>.
+      </p>
+    </div>
+    <div class="cnil-cookie-actions">
+      <button type="button" class="cnil-cookie-btn" id="cnilRefuseBtn">
+        Tout refuser
+      </button>
+      <button type="button" class="cnil-cookie-btn" id="cnilAcceptBtn">
+        Tout accepter
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .cnil-cookie-banner {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    max-width: 780px;
+    margin: 0 auto;
+    z-index: 99995;
+    background: #181410;
+    color: #f7f3eb;
+    border: 1.5px solid rgba(217, 184, 108, 0.45);
+    border-radius: 18px;
+    padding: 1.15rem 1.3rem;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    animation: cnilSlideUp .28s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes cnilSlideUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .cnil-cookie-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .cnil-cookie-title {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .98rem;
+    margin-bottom: .35rem;
+    color: #ffffff;
+  }
+  .cnil-status-badge {
+    font-size: .72rem;
+    padding: .15rem .55rem;
+    border-radius: 99px;
+    background: rgba(217, 184, 108, 0.2);
+    color: #f3d486;
+    font-weight: 600;
+  }
+  .cnil-cookie-text p {
+    margin: 0;
+    font-size: .84rem;
+    line-height: 1.5;
+    color: #d6cec2;
+  }
+  .cnil-cookie-text a {
+    color: #e6c677;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+  .cnil-cookie-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+    flex-shrink: 0;
+  }
+  /* Conformité CNIL stricte : boutons Accepter et Refuser de même taille, même visibilité et même contraste */
+  .cnil-cookie-btn {
+    min-height: 44px;
+    padding: .65rem 1.15rem;
+    border-radius: 12px;
+    border: 1.5px solid #d9b86c;
+    background: #262019;
+    color: #ffffff;
+    font: 600 .88rem 'Inter', system-ui, sans-serif;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    transition: background .18s ease, transform .15s ease, border-color .18s ease;
+  }
+  .cnil-cookie-btn:hover {
+    background: #d9b86c;
+    color: #14100b;
+    border-color: #d9b86c;
+  }
+  .cnil-cookie-btn:active {
+    transform: scale(0.98);
+  }
+  @media (min-width: 720px) {
+    .cnil-cookie-inner {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.4rem;
+    }
+    .cnil-cookie-actions {
+      width: 300px;
+    }
+  }
+</style>
+
+<script>
+  (function() {
+    var COOKIE_NAME = 'ndolo_consent';
+    var SIX_MONTHS_SEC = 180 * 24 * 3600; // 6 mois (recommandation CNIL)
+    var banner = document.getElementById('cnilCookieBanner');
+    var acceptBtn = document.getElementById('cnilAcceptBtn');
+    var refuseBtn = document.getElementById('cnilRefuseBtn');
+    var statusBadge = document.getElementById('cnilCurrentStatus');
+
+    function getConsent() {
+      var match = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_NAME + '=([^;]*)'));
+      if (match) return decodeURIComponent(match[1]);
+      try { return localStorage.getItem(COOKIE_NAME); } catch (e) { return null; }
+    }
+
+    function setConsent(value) {
+      var secure = location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = COOKIE_NAME + '=' + encodeURIComponent(value) + '; Max-Age=' + SIX_MONTHS_SEC + '; Path=/; SameSite=Lax' + secure;
+      try { localStorage.setItem(COOKIE_NAME, value); } catch (e) {}
+      window.NDOLO_CONSENT = value;
+      if (value === 'accepted') {
+        enableOptionalScripts();
+      }
+      if (banner) banner.style.display = 'none';
+    }
+
+    // Active uniquement les scripts optionnels après accord explicite
+    function enableOptionalScripts() {
+      var scripts = document.querySelectorAll('script[type="text/plain"][data-consent="analytics"]');
+      scripts.forEach(function(oldScript) {
+        var newScript = document.createElement('script');
+        Array.from(oldScript.attributes).forEach(function(attr) {
+          if (attr.name !== 'type' && attr.name !== 'data-consent') {
+            newScript.setAttribute(attr.name, attr.value);
+          }
+        });
+        newScript.textContent = oldScript.textContent;
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
+    }
+
+    function openBanner(showCurrent) {
+      if (!banner) return;
+      var current = getConsent();
+      if (showCurrent && statusBadge && current) {
+        statusBadge.style.display = 'inline-block';
+        statusBadge.textContent = current === 'accepted' ? 'Choix actuel : Accepté' : 'Choix actuel : Refusé';
+      }
+      banner.style.display = 'block';
+    }
+
+    var currentChoice = getConsent();
+    window.NDOLO_CONSENT = currentChoice || 'pending';
+
+    if (!currentChoice) {
+      openBanner(false);
+    } else if (currentChoice === 'accepted') {
+      enableOptionalScripts();
+    }
+
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', function() { setConsent('accepted'); });
+    }
+    if (refuseBtn) {
+      refuseBtn.addEventListener('click', function() { setConsent('refused'); });
+    }
+
+    // Permet de rouvrir le bandeau à tout moment via n'importe quel lien [data-open-cookies] ou href="#cookies"
+    document.addEventListener('click', function(e) {
+      var trigger = e.target.closest('[data-open-cookies], a[href="#cookies"]');
+      if (trigger) {
+        e.preventDefault();
+        openBanner(true);
+      }
+    });
+  })();
+</script>

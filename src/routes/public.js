@@ -7,8 +7,13 @@ const { upload, saveImage } = require('../uploads');
 const { createWedding, addGuest, stats, assignGuestToTable, recomputeTableSeats } = require('../weddings');
 const { hasCoupleAccess, cookieOpts } = require('../auth');
 const { markContribution } = require('./public-helpers');
+const { checkHoneypot, createRateLimiter } = require('../security');
 
 const router = express.Router();
+
+const orderLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, keyPrefix: 'order', message: 'Trop de demandes de commande envoyées. Merci de patienter 15 minutes.' });
+const rsvpLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 15, keyPrefix: 'rsvp', message: 'Trop de réponses envoyées coup sur coup. Merci de patienter quelques minutes.' });
+const cagnotteLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 15, keyPrefix: 'cagnotte', message: 'Trop de déclarations rapprochées. Merci de patienter quelques minutes.' });
 
 // ---------- Site vitrine ----------
 router.get('/', (req, res) => {
@@ -21,7 +26,7 @@ router.get('/confidentialite', (req, res) => {
 });
 
 // Formulaire de commande -> crée automatiquement un brouillon de faire-part
-router.post('/commande', upload.array('photos', 30), async (req, res, next) => {
+router.post('/commande', orderLimiter, upload.array('photos', 30), checkHoneypot, async (req, res, next) => {
   try {
     const b = req.body;
     if (!b.bride || !b.groom || !b.phone) {
@@ -73,7 +78,8 @@ function loadWedding(req, res, next) {
 router.get('/i/:slug', loadWedding, (req, res) => {
   const w = req.w;
   const guest = req.query.g ? q.get('SELECT * FROM guests WHERE token = ? AND wedding_id = ?', req.query.g, w.id) : null;
-  if (!req.owner) q.run('UPDATE weddings SET views = views + 1 WHERE id = ?', w.id);
+  const consentGiven = req.cookies && req.cookies.ndolo_consent === 'accepted';
+  if (!req.owner && consentGiven) q.run('UPDATE weddings SET views = views + 1 WHERE id = ?', w.id);
   const photos = q.all('SELECT * FROM photos WHERE wedding_id = ? ORDER BY position, id', w.id);
   const wishes = q.all("SELECT name, message, responded_at FROM guests WHERE wedding_id = ? AND message IS NOT NULL AND message <> '' AND status='yes' ORDER BY responded_at DESC LIMIT 30", w.id);
   const deadlinePassed = w.rsvp_deadline && U.parseLocal(w.rsvp_deadline) < new Date();
@@ -86,7 +92,7 @@ router.get('/i/:slug', loadWedding, (req, res) => {
   });
 });
 
-router.post('/i/:slug/rsvp', loadWedding, async (req, res) => {
+router.post('/i/:slug/rsvp', rsvpLimiter, checkHoneypot, loadWedding, async (req, res) => {
   const w = req.w;
   if (w.status !== 'published') return res.redirect(`/i/${w.slug}?err=draft#rsvp`);
   const b = req.body;
@@ -215,7 +221,7 @@ router.get('/i/:slug/calendar.ics', loadWedding, (req, res) => {
 });
 
 // ---------- Cagnotte Directe USSD (MoMo & Orange Money) ----------
-router.post('/i/:slug/cagnotte', loadWedding, async (req, res) => {
+router.post('/i/:slug/cagnotte', cagnotteLimiter, checkHoneypot, loadWedding, async (req, res) => {
   const w = req.w;
   const amount = parseInt(String(req.body.amount || '').replace(/\D/g, ''), 10);
   if (!w.cagnotte_enabled || w.status !== 'published') return res.redirect(`/i/${w.slug}#cagnotte`);

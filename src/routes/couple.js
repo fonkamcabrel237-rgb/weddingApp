@@ -7,8 +7,10 @@ const {
   addTable, deleteTable, getTablesWithOccupancy, assignGuestToTable, autoAssignTables, recomputeTableSeats,
 } = require('../weddings');
 const { hasCoupleAccess, cookieOpts } = require('../auth');
+const { createRateLimiter } = require('../security');
 
 const router = express.Router();
+const coupleLoginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'couple_login', message: 'Trop de tentatives de connexion. Merci de patienter 15 minutes.' });
 
 router.param('slug', (req, res, next, slug) => {
   const w = q.get('SELECT * FROM weddings WHERE slug = ?', slug);
@@ -21,7 +23,7 @@ router.param('slug', (req, res, next, slug) => {
 
 const guard = (req, res, next) => (req.owner ? next() : res.render('couple/login', { w: req.w, error: null, next: req.originalUrl }));
 
-router.post('/:slug/login', (req, res) => {
+router.post('/:slug/login', coupleLoginLimiter, (req, res) => {
   if (String(req.body.key || '').trim() !== req.w.access_key) {
     return res.render('couple/login', { w: req.w, error: 'Code incorrect.', next: req.body.next });
   }

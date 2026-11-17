@@ -92,6 +92,7 @@
   <div class="container order">
     <div class="s-title"><h2>Commandez votre faire-part</h2><p class="muted">Vous recevez un aperçu automatiquement après l'envoi. Paiement seulement quand vous êtes satisfaits.</p></div>
     <form class="card" method="post" action="/commande" enctype="multipart/form-data">
+      <%- include('partials/honeypot') %>
       <div class="grid g2">
         <label>Prénom de la mariée *<input name="bride" required maxlength="60"></label>
         <label>Prénom du marié *<input name="groom" required maxlength="60"></label>
@@ -169,7 +170,7 @@
   </div>
 </section>
 
-<footer class="site">© <%= new Date().getFullYear() %> <%= brand %> · Faire-part digitaux au Cameroun · <a href="/confidentialite">Politique de confidentialité</a> · <a href="/admin"><i class="fa-solid fa-lock"></i> Espace pro</a></footer>
+<footer class="site">© <%= new Date().getFullYear() %> <%= brand %> · Faire-part digitaux au Cameroun · <a href="/confidentialite">Politique de confidentialité</a> · <a href="#cookies" data-open-cookies>Gérer mes cookies</a> · <a href="/admin"><i class="fa-solid fa-lock"></i> Espace pro</a></footer>
 
 <a class="wa-float" href="<%= waLink(businessWhatsapp, waText) %>" target="_blank" aria-label="WhatsApp">
   <i class="fa-brands fa-whatsapp"></i>
@@ -204,4 +205,5 @@
     });
   })();
 </script>
+<%- include('partials/cookie-banner') %>
 </body></html>

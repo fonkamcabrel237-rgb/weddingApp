@@ -87,8 +87,18 @@
             <td>Maintient la session de l'administrateur de la plateforme (cookie signé, <code>httpOnly</code>).</td>
             <td>30 jours</td>
           </tr>
+          <tr>
+            <td><code>ndolo_consent</code></td>
+            <td>Mémorise votre choix (Accepté ou Refusé) concernant le bandeau de consentement aux cookies.</td>
+            <td>6 mois</td>
+          </tr>
         </tbody>
       </table>
+    </div>
+    <div style="margin-top: 1rem;">
+      <button type="button" class="btn btn-outline btn-sm" data-open-cookies>
+        <i class="fa-solid fa-sliders"></i> Modifier mon choix de cookies
+      </button>
     </div>
   </section>
 
@@ -137,6 +147,8 @@
 <footer class="site">
   © <%= new Date().getFullYear() %> <%= brand %> · Faire-part digitaux au Cameroun ·
   <a href="/confidentialite">Politique de confidentialité</a> ·
+  <a href="#cookies" data-open-cookies>Gérer mes cookies</a> ·
   <a href="/admin"><i class="fa-solid fa-lock"></i> Espace pro</a>
 </footer>
+<%- include('partials/cookie-banner') %>
 </body></html>
