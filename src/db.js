@@ -1,13 +1,24 @@
 // Base de données SQLite intégrée à Node (node:sqlite) — aucun serveur à installer.
 const { DatabaseSync } = require('node:sqlite');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { isCloudEnabled, scheduleDbBackup } = require('./cloud-sync');
 
 const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-const db = new DatabaseSync(path.join(DATA_DIR, 'ndolo.db'));
+const dbPath = path.join(DATA_DIR, 'ndolo.db');
+if (isCloudEnabled() && (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0)) {
+  try {
+    execFileSync(process.execPath, ['--no-warnings', path.join(__dirname, '..', 'scripts', 'restore-db.js')], { stdio: 'inherit' });
+  } catch (e) {
+    console.warn('[db] Restauration initiale ignorée :', e.message);
+  }
+}
+
+const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 
 db.exec(`
@@ -115,7 +126,11 @@ const clean = (p) => p.map((v) => (v === undefined ? null : typeof v === 'boolea
 const q = {
   get: (sql, ...p) => db.prepare(sql).get(...clean(p)),
   all: (sql, ...p) => db.prepare(sql).all(...clean(p)),
-  run: (sql, ...p) => db.prepare(sql).run(...clean(p)),
+  run: (sql, ...p) => {
+    const res = db.prepare(sql).run(...clean(p));
+    scheduleDbBackup(db, DATA_DIR);
+    return res;
+  },
 };
 
 module.exports = { db, q, DATA_DIR, UPLOAD_DIR };

@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { UPLOAD_DIR } = require('./db');
 const { token } = require('./utils');
+const { uploadMediaToCloud, deleteMediaFromCloud } = require('./cloud-sync');
 
 let sharp = null;
 try { sharp = require('sharp'); } catch { console.warn('sharp indisponible : les photos ne seront pas compressées.'); }
@@ -27,13 +28,16 @@ const uploadAudio = multer({
 async function saveImage(file) {
   if (sharp) {
     const name = `${Date.now()}-${token(6)}.webp`;
+    const dest = path.join(UPLOAD_DIR, name);
     await sharp(file.buffer).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 78 }).toFile(path.join(UPLOAD_DIR, name));
+      .webp({ quality: 78 }).toFile(dest);
+    await uploadMediaToCloud(name, fs.readFileSync(dest));
     return name;
   }
   const ext = (path.extname(file.originalname) || '.jpg').toLowerCase().replace(/[^.a-z0-9]/g, '');
   const name = `${Date.now()}-${token(6)}${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, name), file.buffer);
+  await uploadMediaToCloud(name, file.buffer);
   return name;
 }
 
@@ -41,6 +45,7 @@ function saveAudio(file) {
   const ext = (path.extname(file.originalname) || '.mp3').toLowerCase().replace(/[^.a-z0-9]/g, '') || '.mp3';
   const name = `music-${Date.now()}-${token(6)}${ext}`;
   fs.writeFileSync(path.join(UPLOAD_DIR, name), file.buffer);
+  uploadMediaToCloud(name, file.buffer);
   return `/uploads/${name}`;
 }
 
@@ -62,6 +67,7 @@ async function resolveMusicUrl(rawUrl) {
           const buf = Buffer.from(await mp3Res.arrayBuffer());
           const name = `music-${Date.now()}-${token(6)}.mp3`;
           fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
+          await uploadMediaToCloud(name, buf);
           return `/uploads/${name}`;
         }
         return match[0];
@@ -88,6 +94,7 @@ async function resolveMusicUrl(rawUrl) {
 function deleteImage(name) {
   if (!name || name.includes('/') || name.includes('\\')) return;
   fs.rm(path.join(UPLOAD_DIR, name), { force: true }, () => {});
+  deleteMediaFromCloud(name);
 }
 
 module.exports = { upload, uploadAudio, saveImage, saveAudio, resolveMusicUrl, deleteImage };

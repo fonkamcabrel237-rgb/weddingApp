@@ -133,3 +133,20 @@ test('6. Moteur colorimétrique de thème sur-mesure (contraste automatique)', (
   assert.ok(darkStyle.includes('--bg:#0c1629'), 'Doit injecter le fond sombre choisi');
   assert.ok(darkStyle.includes('--text:#f5f0e6'), 'Doit choisir automatiquement un texte ivoire sur fond sombre');
 });
+
+test('7. Chiffrement AES-256-GCM des sauvegardes Cloud (Cloudinary + Render)', () => {
+  const { encryptBuffer, decryptBuffer } = require('../src/cloud-sync');
+  const secret = 'test-cloudinary-api-secret-key';
+  const original = Buffer.from('SQLite format 3 - Données secrètes mariage Grâce & Junior');
+
+  const encrypted = encryptBuffer(original, secret);
+  assert.notDeepStrictEqual(encrypted, original, 'Le buffer chiffré doit être différent de l\'original');
+  assert.strictEqual(encrypted.subarray(0, 4).toString('utf8'), 'NDL1', 'Doit contenir l\'en-tête magique NDL1');
+
+  const decrypted = decryptBuffer(encrypted, secret);
+  assert.deepStrictEqual(decrypted, original, 'Le déchiffrement avec la bonne clé doit restituer la base intacte');
+
+  assert.throws(() => {
+    decryptBuffer(encrypted, 'mauvaise-cle-secrete');
+  }, 'Doit rejeter le déchiffrement si la clé ou l\'intégrité est invalide');
+});

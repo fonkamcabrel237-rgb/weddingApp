@@ -2,9 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-const { UPLOAD_DIR } = require('./src/db');
+const { db, DATA_DIR, UPLOAD_DIR } = require('./src/db');
 const utils = require('./src/utils');
 const payments = require('./src/payments');
+const { isCloudEnabled, restoreMediaIfMissing, performDbBackup } = require('./src/cloud-sync');
 
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.startsWith('remplace')) {
   console.warn('⚠️  SESSION_SECRET non défini : définis-le dans .env avant la mise en production.');
@@ -26,7 +27,12 @@ app.use('/static', express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
   etag: false
 }));
+app.use('/uploads/:filename', async (req, res, next) => {
+  await restoreMediaIfMissing(req.params.filename, UPLOAD_DIR);
+  next();
+});
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true }));
+app.get('/healthz', (req, res) => res.status(200).json({ ok: true, cloudSync: isCloudEnabled() }));
 
 // Variables disponibles dans toutes les vues
 app.use((req, res, next) => {
@@ -54,4 +60,15 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`💍 ${process.env.BRAND_NAME || 'Ndolo Invitations'} en ligne sur http://localhost:${PORT}`));
+const server = app.listen(PORT, () => {
+  console.log(`💍 ${process.env.BRAND_NAME || 'Ndolo Invitations'} en ligne sur http://localhost:${PORT} (Persistance Cloud : ${isCloudEnabled() ? 'ACTIVE ☁️' : 'Locale'})`);
+});
+
+['SIGTERM', 'SIGINT'].forEach((sig) => {
+  process.on(sig, async () => {
+    if (isCloudEnabled()) {
+      await performDbBackup(db, DATA_DIR);
+    }
+    server.close(() => process.exit(0));
+  });
+});
