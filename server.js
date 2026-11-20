@@ -60,8 +60,9 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`💍 ${process.env.BRAND_NAME || 'Ndolo Invitations'} en ligne sur http://localhost:${PORT} (Persistance Cloud : ${isCloudEnabled() ? 'ACTIVE ☁️' : 'Locale'})`);
+const IP = process.env.IP || '0.0.0.0';
+const server = app.listen(PORT, IP, () => {
+  console.log(`💍 ${process.env.BRAND_NAME || 'Ndolo Invitations'} en ligne sur http://${IP}:${PORT} (Persistance Cloud : ${isCloudEnabled() ? 'ACTIVE ☁️' : 'Locale'})`);
 });
 
 ['SIGTERM', 'SIGINT'].forEach((sig) => {
