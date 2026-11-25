@@ -1,17 +1,19 @@
 require('dotenv').config();
 const express = require('express');
+const ejs = require('ejs');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-const { db, DATA_DIR, UPLOAD_DIR } = require('./src/db');
+const { UPLOAD_DIR, store } = require('./src/db');
 const utils = require('./src/utils');
 const payments = require('./src/payments');
-const { isCloudEnabled, restoreMediaIfMissing, performDbBackup } = require('./src/cloud-sync');
+const { isSupabaseEnabled, getPublicMediaUrl } = require('./src/supabase');
 
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.startsWith('remplace')) {
-  console.warn('⚠️  SESSION_SECRET non défini : définis-le dans .env avant la mise en production.');
+  console.warn('⚠️  SESSION_SECRET non défini : définis-le dans les variables d’environnement en production.');
 }
 
 const app = express();
+app.engine('ejs', ejs.__express);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.set('trust proxy', 1);
@@ -20,21 +22,35 @@ app.disable('x-powered-by');
 // Webhook Notch Pay : corps brut nécessaire pour vérifier la signature -> avant les parsers
 app.post('/webhooks/notchpay', express.raw({ type: '*/*', limit: '1mb' }), require('./src/routes/webhook'));
 
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '4mb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser(process.env.SESSION_SECRET || 'dev-secret'));
-app.use('/static', express.static(path.join(__dirname, 'public'), { 
+
+app.use('/static', express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
-  etag: false
+  etag: false,
 }));
-app.use('/uploads/:filename', async (req, res, next) => {
-  await restoreMediaIfMissing(req.params.filename, UPLOAD_DIR);
+
+// Médias : en mode Supabase, redirection transparente vers le CDN public Supabase Storage
+app.get('/uploads/:filename', (req, res, next) => {
+  if (isSupabaseEnabled()) {
+    return res.redirect(302, getPublicMediaUrl(req.params.filename));
+  }
   next();
 });
-app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true }));
-app.get('/healthz', (req, res) => res.status(200).json({ ok: true, cloudSync: isCloudEnabled() }));
+if (!isSupabaseEnabled()) {
+  app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true }));
+}
 
-// Variables disponibles dans toutes les vues
+app.get('/healthz', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    storage: isSupabaseEnabled() ? 'supabase' : 'local',
+    db: store.mode,
+  });
+});
+
+// Variables disponibles dans toutes les vues EJS
 app.use((req, res, next) => {
   Object.assign(res.locals, utils, {
     brand: process.env.BRAND_NAME || 'Ndolo Invitations',
@@ -53,23 +69,26 @@ app.use('/admin', require('./src/routes/admin'));
 app.use('/espace', require('./src/routes/couple'));
 app.use('/', require('./src/routes/public'));
 
-app.use((req, res) => res.status(404).render('error', { title: 'Page introuvable', message: "Cette page n'existe pas ou a été déplacée." }));
+app.use((req, res) => res.status(404).render('error', {
+  title: 'Page introuvable',
+  message: "Cette page n'existe pas ou a été déplacée.",
+}));
+
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).render('error', { title: 'Oups…', message: 'Une erreur est survenue. Réessaie dans un instant.' });
-});
-
-const PORT = process.env.PORT || 3000;
-const IP = process.env.IP || '0.0.0.0';
-const server = app.listen(PORT, IP, () => {
-  console.log(`💍 ${process.env.BRAND_NAME || 'Ndolo Invitations'} en ligne sur http://${IP}:${PORT} (Persistance Cloud : ${isCloudEnabled() ? 'ACTIVE ☁️' : 'Locale'})`);
-});
-
-['SIGTERM', 'SIGINT'].forEach((sig) => {
-  process.on(sig, async () => {
-    if (isCloudEnabled()) {
-      await performDbBackup(db, DATA_DIR);
-    }
-    server.close(() => process.exit(0));
+  console.error('[server-error]', err);
+  res.status(500).render('error', {
+    title: 'Oups…',
+    message: 'Une erreur est survenue. Réessaie dans un instant.',
   });
 });
+
+// Démarrage HTTP classique en local uniquement (sur Vercel, `api/index.js` exporte `app` en Serverless)
+if (require.main === module && !process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  const IP = process.env.IP || '0.0.0.0';
+  app.listen(PORT, IP, () => {
+    console.log(`💍 ${process.env.BRAND_NAME || 'Ndolo Invitations'} en ligne sur http://${IP}:${PORT} (Base : ${isSupabaseEnabled() ? 'Supabase ☁️' : 'SQLite local'})`);
+  });
+}
+
+module.exports = app;

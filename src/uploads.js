@@ -1,13 +1,20 @@
-// Upload des photos : redimensionnement automatique (léger pour la 3G/4G) si sharp est disponible.
+// Upload des photos & musiques :
+// - En production (Supabase) : stockage permanent dans le bucket public Supabase Storage ("uploads").
+// - En développement local sans Supabase : stockage dans ./data/uploads.
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { UPLOAD_DIR } = require('./db');
 const { token } = require('./utils');
-const { uploadMediaToCloud, deleteMediaFromCloud } = require('./cloud-sync');
+const {
+  isSupabaseEnabled,
+  uploadToSupabaseStorage,
+  createSignedUpload,
+  deleteFromSupabaseStorage,
+} = require('./supabase');
 
 let sharp = null;
-try { sharp = require('sharp'); } catch { console.warn('sharp indisponible : les photos ne seront pas compressées.'); }
+try { sharp = require('sharp'); } catch { /* optionnel sur Vercel Serverless (compression WebP aussi côté navigateur) */ }
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -25,37 +32,58 @@ const uploadAudio = multer({
   },
 });
 
+async function persistBuffer(name, buffer, contentType) {
+  if (isSupabaseEnabled()) {
+    const publicUrl = await uploadToSupabaseStorage(name, buffer, contentType);
+    return { name, publicUrl };
+  }
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  fs.writeFileSync(path.join(UPLOAD_DIR, name), buffer);
+  return { name, publicUrl: `/uploads/${name}` };
+}
+
 async function saveImage(file) {
   if (sharp) {
-    const name = `${Date.now()}-${token(6)}.webp`;
-    const dest = path.join(UPLOAD_DIR, name);
-    await sharp(file.buffer).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 78 }).toFile(dest);
-    await uploadMediaToCloud(name, fs.readFileSync(dest));
-    return name;
+    try {
+      const name = `${Date.now()}-${token(6)}.webp`;
+      const outBuf = await sharp(file.buffer)
+        .rotate()
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 78 })
+        .toBuffer();
+      await persistBuffer(name, outBuf, 'image/webp');
+      return name;
+    } catch (e) {
+      console.warn('[uploads] Fallback sans sharp :', e.message);
+    }
   }
-  const ext = (path.extname(file.originalname) || '.jpg').toLowerCase().replace(/[^.a-z0-9]/g, '');
+  const ext = (path.extname(file.originalname) || '.jpg').toLowerCase().replace(/[^.a-z0-9]/g, '') || '.jpg';
   const name = `${Date.now()}-${token(6)}${ext}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, name), file.buffer);
-  await uploadMediaToCloud(name, file.buffer);
+  await persistBuffer(name, file.buffer, file.mimetype || 'image/jpeg');
   return name;
 }
 
-function saveAudio(file) {
+async function saveAudio(file) {
   const ext = (path.extname(file.originalname) || '.mp3').toLowerCase().replace(/[^.a-z0-9]/g, '') || '.mp3';
   const name = `music-${Date.now()}-${token(6)}${ext}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, name), file.buffer);
-  uploadMediaToCloud(name, file.buffer);
-  return `/uploads/${name}`;
+  const { publicUrl } = await persistBuffer(name, file.buffer, file.mimetype || 'audio/mpeg');
+  return publicUrl;
+}
+
+async function createAudioUploadSession(originalName) {
+  const ext = (path.extname(originalName || '') || '.mp3').toLowerCase().replace(/[^.a-z0-9]/g, '') || '.mp3';
+  const name = `music-${Date.now()}-${token(6)}${ext}`;
+  if (!isSupabaseEnabled()) return null;
+  return createSignedUpload(name);
 }
 
 // Convertit les liens de pages musicales (Epidemic Sound, Google Drive, Dropbox) en flux audio .mp3 direct
 async function resolveMusicUrl(rawUrl) {
   const url = String(rawUrl || '').trim();
   if (!url) return null;
-  if (url.startsWith('/uploads/')) return url;
+  if (url.startsWith('/uploads/') || url.includes('/storage/v1/object/public/')) return url;
 
-  // 1. Lien de page Epidemic Sound -> extraction et téléchargement local du .mp3
+  // 1. Lien de page Epidemic Sound -> extraction et sauvegarde permanente du .mp3
   if (/epidemicsound\.com\/.*\/tracks\//i.test(url)) {
     try {
       const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
@@ -66,9 +94,8 @@ async function resolveMusicUrl(rawUrl) {
         if (mp3Res.ok) {
           const buf = Buffer.from(await mp3Res.arrayBuffer());
           const name = `music-${Date.now()}-${token(6)}.mp3`;
-          fs.writeFileSync(path.join(UPLOAD_DIR, name), buf);
-          await uploadMediaToCloud(name, buf);
-          return `/uploads/${name}`;
+          const { publicUrl } = await persistBuffer(name, buf, 'audio/mpeg');
+          return publicUrl;
         }
         return match[0];
       }
@@ -91,10 +118,22 @@ async function resolveMusicUrl(rawUrl) {
   return url;
 }
 
-function deleteImage(name) {
-  if (!name || name.includes('/') || name.includes('\\')) return;
+async function deleteImage(name) {
+  if (!name) return;
+  if (isSupabaseEnabled()) {
+    await deleteFromSupabaseStorage(name);
+    return;
+  }
+  if (name.includes('/') || name.includes('\\')) return;
   fs.rm(path.join(UPLOAD_DIR, name), { force: true }, () => {});
-  deleteMediaFromCloud(name);
 }
 
-module.exports = { upload, uploadAudio, saveImage, saveAudio, resolveMusicUrl, deleteImage };
+module.exports = {
+  upload,
+  uploadAudio,
+  saveImage,
+  saveAudio,
+  createAudioUploadSession,
+  resolveMusicUrl,
+  deleteImage,
+};

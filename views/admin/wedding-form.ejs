@@ -226,7 +226,7 @@
     <div class="photos-admin-grid">
       <% photos.forEach(function(p) { %>
         <div class="photo-admin-card <%= w.cover_photo === p.filename ? 'is-cover' : '' %>">
-          <img src="/uploads/<%= p.filename %>" loading="lazy" alt="Photo mariage">
+          <img src="<%= mediaUrl(p.filename) %>" loading="lazy" alt="Photo mariage">
           <div class="photo-admin-overlay">
             <form method="post" action="/admin/mariages/<%= w.id %>/photos/<%= p.id %>" class="inline">
               <button name="action" value="cover" class="badge-cover-btn" title="Définir comme photo principale"><%= w.cover_photo === p.filename ? '★ Principale' : '☆ Définir' %></button>
@@ -325,26 +325,63 @@
       audioBtn.addEventListener('click', function () { audioFile.click(); });
       audioFile.addEventListener('change', function () {
         if (!audioFile.files || !audioFile.files[0]) return;
-        var fd = new FormData();
-        fd.append('audio', audioFile.files[0]);
-        if (weddingId) fd.append('wedding_id', weddingId);
+        var file = audioFile.files[0];
         var origHtml = audioBtn.innerHTML;
         audioBtn.disabled = true;
         audioBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Envoi…';
-        fetch('/admin/upload-audio', { method: 'POST', body: fd, credentials: 'same-origin' })
+
+        function applyUploadedUrl(url) {
+          musicInput.value = url;
+          if (audioPrev) {
+            audioPrev.src = url;
+            audioPrev.style.display = 'block';
+          }
+        }
+
+        function uploadViaServer() {
+          var fd = new FormData();
+          fd.append('audio', file);
+          if (weddingId) fd.append('wedding_id', weddingId);
+          return fetch('/admin/upload-audio', { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data && data.ok && data.url) applyUploadedUrl(data.url);
+              else alert((data && data.error) || "Erreur lors de l'envoi du fichier audio.");
+            });
+        }
+
+        fetch('/admin/upload-audio-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ filename: file.name })
+        })
           .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data && data.ok && data.url) {
-              musicInput.value = data.url;
-              if (audioPrev) {
-                audioPrev.src = data.url;
-                audioPrev.style.display = 'block';
-              }
-            } else {
-              alert((data && data.error) || 'Erreur lors de l\'envoi du fichier audio.');
+          .then(function (session) {
+            if (session && session.ok && session.mode === 'supabase' && session.signedUrl) {
+              return fetch(session.signedUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': file.type || 'audio/mpeg' },
+                body: file
+              }).then(function (putRes) {
+                if (!putRes.ok) throw new Error('Échec upload direct Supabase');
+                return fetch('/admin/save-audio-url', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'same-origin',
+                  body: JSON.stringify({ url: session.publicUrl, wedding_id: weddingId })
+                }).then(function () {
+                  applyUploadedUrl(session.publicUrl);
+                });
+              });
             }
+            return uploadViaServer();
           })
-          .catch(function () { alert('Erreur réseau lors de l\'envoi du fichier audio.'); })
+          .catch(function () {
+            return uploadViaServer().catch(function () {
+              alert("Erreur réseau lors de l'envoi du fichier audio.");
+            });
+          })
           .finally(function () {
             audioBtn.disabled = false;
             audioBtn.innerHTML = origHtml;
@@ -354,5 +391,6 @@
     }
   })();
 </script>
+<script src="/static/js/upload-compress.js?v=1.0" defer></script>
 <script src="/static/js/seamless.js?v=8.0" defer></script>
 </body></html>

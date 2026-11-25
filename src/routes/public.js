@@ -1,70 +1,79 @@
 const express = require('express');
 const QRCode = require('qrcode');
-const { q } = require('../db');
+const { store, nowStr } = require('../db');
 const U = require('../utils');
 const payments = require('../payments');
 const { upload, saveImage } = require('../uploads');
-const { createWedding, addGuest, stats, assignGuestToTable, recomputeTableSeats } = require('../weddings');
+const { createWedding, addGuest, stats, assignGuestToTable, recomputeTableSeats, ensureDemoSeeded } = require('../weddings');
 const { hasCoupleAccess, cookieOpts } = require('../auth');
 const { markContribution } = require('./public-helpers');
 const { checkHoneypot, createRateLimiter } = require('../security');
 
 const router = express.Router();
+const { asyncRoute } = U;
 
 const orderLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5, keyPrefix: 'order', message: 'Trop de demandes de commande envoyées. Merci de patienter 15 minutes.' });
 const rsvpLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 15, keyPrefix: 'rsvp', message: 'Trop de réponses envoyées coup sur coup. Merci de patienter quelques minutes.' });
 const cagnotteLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 15, keyPrefix: 'cagnotte', message: 'Trop de déclarations rapprochées. Merci de patienter quelques minutes.' });
 
 // ---------- Site vitrine ----------
-router.get('/', (req, res) => {
-  const demo = q.get("SELECT slug FROM weddings WHERE status='published' ORDER BY (slug='demo') DESC, id LIMIT 1");
+router.get('/', asyncRoute(async (req, res) => {
+  await ensureDemoSeeded();
+  const demo = await store.getFirstPublishedWedding();
   res.render('landing', { demo, PLANS: U.PLANS, ref: req.query.ref || '' });
-});
+}));
 
 router.get('/confidentialite', (req, res) => {
   res.render('privacy');
 });
 
 // Formulaire de commande -> crée automatiquement un brouillon de faire-part
-router.post('/commande', orderLimiter, upload.array('photos', 30), checkHoneypot, async (req, res, next) => {
-  try {
-    const b = req.body;
-    if (!b.bride || !b.groom || !b.phone) {
-      return res.status(400).render('error', { title: 'Informations manquantes', message: 'Merci de renseigner les prénoms des mariés et un numéro WhatsApp.' });
-    }
-    const lead = q.run(`INSERT INTO leads (bride, groom, phone, email, city, event_date, event_type, plan, partner, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`, b.bride, b.groom, U.normalizePhone(b.phone), b.email, b.city, b.event_date,
-      b.event_type, b.plan, b.partner, b.notes);
-    const leadId = Number(lead.lastInsertRowid);
+router.post('/commande', orderLimiter, upload.array('photos', 30), checkHoneypot, asyncRoute(async (req, res) => {
+  const b = req.body;
+  if (!b.bride || !b.groom || !b.phone) {
+    return res.status(400).render('error', { title: 'Informations manquantes', message: 'Merci de renseigner les prénoms des mariés et un numéro WhatsApp.' });
+  }
+  const lead = await store.insertLead({
+    bride: b.bride,
+    groom: b.groom,
+    phone: U.normalizePhone(b.phone),
+    email: b.email || null,
+    city: b.city || null,
+    event_date: b.event_date || null,
+    event_type: b.event_type || null,
+    plan: b.plan || null,
+    partner: b.partner || null,
+    notes: b.notes || null,
+  });
 
-    const w = createWedding({
-      bride: b.bride, groom: b.groom, plan: b.plan, partner: b.partner, event_type: b.event_type,
-      event_date: b.event_date, city: b.city, venue_name: b.venue_name, venue_address: b.venue_address,
-      maps_query: b.venue_address ? `${b.venue_name || ''} ${b.venue_address} ${b.city || ''}`.trim() : null,
-      couple_phone: b.phone, couple_email: b.email, lead_id: leadId,
-      theme: U.THEMES[b.theme] ? b.theme : 'royal',
-      custom_bg: b.custom_bg,
-      custom_accent: b.custom_accent,
-    });
-    q.run('UPDATE leads SET wedding_id = ? WHERE id = ?', w.id, leadId);
+  const w = await createWedding({
+    bride: b.bride, groom: b.groom, plan: b.plan, partner: b.partner, event_type: b.event_type,
+    event_date: b.event_date, city: b.city, venue_name: b.venue_name, venue_address: b.venue_address,
+    maps_query: b.venue_address ? `${b.venue_name || ''} ${b.venue_address} ${b.city || ''}`.trim() : null,
+    couple_phone: b.phone, couple_email: b.email, lead_id: lead.id,
+    theme: U.THEMES[b.theme] ? b.theme : 'royal',
+    custom_bg: b.custom_bg,
+    custom_accent: b.custom_accent,
+  });
+  await store.updateLead(lead.id, { wedding_id: w.id });
 
-    let pos = 0;
-    for (const f of req.files || []) {
-      const name = await saveImage(f);
-      q.run('INSERT INTO photos (wedding_id, filename, position) VALUES (?,?,?)', w.id, name, pos++);
-      if (pos === 1) q.run('UPDATE weddings SET cover_photo = ? WHERE id = ?', name, w.id);
-    }
+  let pos = 0;
+  for (const f of req.files || []) {
+    const name = await saveImage(f);
+    await store.insertPhoto({ wedding_id: w.id, filename: name, position: pos++ });
+    if (pos === 1) await store.updateWedding(w.id, { cover_photo: name });
+  }
 
-    await U.notify(`🆕 Nouvelle commande ${U.PLANS[w.plan].name} : ${U.coupleNames(w)}\n📅 ${b.event_date || '?'} — ${b.city || '?'}\n📞 ${U.prettyPhone(b.phone)}${b.partner ? `\n🤝 Partenaire : ${b.partner}` : ''}\n✏️ ${U.BASE_URL()}/admin/mariages/${w.id}`);
+  await U.notify(`🆕 Nouvelle commande ${U.PLANS[w.plan].name} : ${U.coupleNames(w)}\n📅 ${b.event_date || '?'} — ${b.city || '?'}\n📞 ${U.prettyPhone(b.phone)}${b.partner ? `\n🤝 Partenaire : ${b.partner}` : ''}\n✏️ ${U.BASE_URL()}/admin/mariages/${w.id}`);
 
-    res.cookie(`c${w.id}`, w.access_key, cookieOpts(120));
-    res.render('merci', { w, plan: U.PLANS[w.plan] });
-  } catch (e) { next(e); }
-});
+  res.cookie(`c${w.id}`, w.access_key, cookieOpts(120));
+  res.render('merci', { w, plan: U.PLANS[w.plan] });
+}));
 
 // ---------- Faire-part ----------
-function loadWedding(req, res, next) {
-  const w = q.get('SELECT * FROM weddings WHERE slug = ?', req.params.slug);
+const loadWedding = asyncRoute(async (req, res, next) => {
+  if (req.params.slug === 'demo') await ensureDemoSeeded();
+  const w = await store.getWeddingBySlug(req.params.slug);
   if (!w || w.status === 'archived') return res.status(404).render('error', { title: 'Invitation introuvable', message: "Ce faire-part n'existe pas ou n'est plus en ligne." });
   if (req.query.k && req.query.k === w.access_key) res.cookie(`c${w.id}`, w.access_key, cookieOpts(120));
   const owner = hasCoupleAccess(req, w) || (req.query.k && req.query.k === w.access_key);
@@ -73,26 +82,38 @@ function loadWedding(req, res, next) {
   }
   req.w = w; req.owner = owner;
   next();
-}
-
-router.get('/i/:slug', loadWedding, (req, res) => {
-  const w = req.w;
-  const guest = req.query.g ? q.get('SELECT * FROM guests WHERE token = ? AND wedding_id = ?', req.query.g, w.id) : null;
-  const consentGiven = req.cookies && req.cookies.ndolo_consent === 'accepted';
-  if (!req.owner && consentGiven) q.run('UPDATE weddings SET views = views + 1 WHERE id = ?', w.id);
-  const photos = q.all('SELECT * FROM photos WHERE wedding_id = ? ORDER BY position, id', w.id);
-  const wishes = q.all("SELECT name, message, responded_at FROM guests WHERE wedding_id = ? AND message IS NOT NULL AND message <> '' AND status='yes' ORDER BY responded_at DESC LIMIT 30", w.id);
-  const deadlinePassed = w.rsvp_deadline && U.parseLocal(w.rsvp_deadline) < new Date();
-  const contribSuccess = req.query.ok === 'cagnotte_merci' && req.query.c
-    ? q.get('SELECT * FROM contributions WHERE reference = ? AND wedding_id = ?', req.query.c, w.id)
-    : null;
-  res.render('invitation', {
-    w, guest, photos, wishes, program: U.parseProgram(w), s: stats(w.id), deadlinePassed,
-    contribSuccess, isDraft: w.status !== 'published', error: req.query.err || null,
-  });
 });
 
-router.post('/i/:slug/rsvp', rsvpLimiter, checkHoneypot, loadWedding, async (req, res) => {
+router.get('/i/:slug', loadWedding, asyncRoute(async (req, res) => {
+  const w = req.w;
+  const consentGiven = req.cookies && req.cookies.ndolo_consent === 'accepted';
+  if (!req.owner && consentGiven) {
+    await store.incrementWeddingViews(w.id, w.views);
+  }
+  const [guest, photos, allGuests, s, contribSuccess] = await Promise.all([
+    req.query.g ? store.getGuestByToken(req.query.g, w.id) : Promise.resolve(null),
+    store.listPhotosByWedding(w.id),
+    store.listGuestsByWedding(w.id),
+    stats(w.id),
+    req.query.ok === 'cagnotte_merci' && req.query.c
+      ? store.getContributionByRef(req.query.c, w.id)
+      : Promise.resolve(null),
+  ]);
+
+  const wishes = allGuests
+    .filter((g) => g.status === 'yes' && g.message && String(g.message).trim() !== '')
+    .sort((a, b) => String(b.responded_at || '').localeCompare(String(a.responded_at || '')))
+    .slice(0, 30)
+    .map((g) => ({ name: g.name, message: g.message, responded_at: g.responded_at }));
+
+  const deadlinePassed = w.rsvp_deadline && U.parseLocal(w.rsvp_deadline) < new Date();
+  res.render('invitation', {
+    w, guest, photos, wishes, program: U.parseProgram(w), s, deadlinePassed,
+    contribSuccess, isDraft: w.status !== 'published', error: req.query.err || null,
+  });
+}));
+
+router.post('/i/:slug/rsvp', rsvpLimiter, checkHoneypot, loadWedding, asyncRoute(async (req, res) => {
   const w = req.w;
   if (w.status !== 'published') return res.redirect(`/i/${w.slug}?err=draft#rsvp`);
   const b = req.body;
@@ -101,63 +122,67 @@ router.post('/i/:slug/rsvp', rsvpLimiter, checkHoneypot, loadWedding, async (req
   const phone = U.normalizePhone(b.phone);
   if (!name && !b.token && !phone) return res.redirect(`/i/${w.slug}?err=name#rsvp`);
 
-  let guest = b.token ? q.get('SELECT * FROM guests WHERE token = ? AND wedding_id = ?', b.token, w.id) : null;
-  if (!guest && phone) guest = q.get('SELECT * FROM guests WHERE phone = ? AND wedding_id = ?', phone, w.id);
-  if (!guest && name) guest = q.get('SELECT * FROM guests WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND wedding_id = ?', name, w.id);
+  let guest = await store.findGuestForRsvp(w.id, { token: b.token, phone, name });
 
   if (!guest) {
     if (w.strict_rsvp) {
       return res.redirect(`/i/${w.slug}?err=not_on_list#rsvp`);
     }
-    const currentStats = stats(w.id);
+    const currentStats = await stats(w.id);
     const reqSeats = Math.max(1, Math.min(10, parseInt(b.count, 10) || 1));
     if (attending === 'yes' && currentStats.guests.activeSeats + reqSeats > (w.max_guests || 200)) {
       return res.redirect(`/i/${w.slug}?err=quota_full#rsvp`);
     }
     if (!name) return res.redirect(`/i/${w.slug}?err=name#rsvp`);
-    guest = addGuest(w.id, { name, phone, seats: reqSeats, source: 'public' });
+    guest = await addGuest(w.id, { name, phone, seats: reqSeats, source: 'public' });
   }
 
   const max = guest.source === 'list' ? guest.seats : 10;
   const count = attending === 'yes' ? Math.max(1, Math.min(max, parseInt(b.count, 10) || 1)) : 0;
   const oldTableId = guest.table_id;
 
-  q.run(`UPDATE guests SET status = ?, attending_count = ?, message = ?, phone = COALESCE(?, phone),
-    name = CASE WHEN source='public' AND ? <> '' THEN ? ELSE name END, responded_at = datetime('now') WHERE id = ?`,
-    attending, count, String(b.message || '').trim().slice(0, 500) || null, phone || null, name, name, guest.id);
+  const patch = {
+    status: attending,
+    attending_count: count,
+    message: String(b.message || '').trim().slice(0, 500) || null,
+    responded_at: nowStr(),
+  };
+  if (phone) patch.phone = phone;
+  if (guest.source === 'public' && name) patch.name = name;
+  await store.updateGuest(guest.id, patch);
 
   // Mise à jour automatique de la table et des sièges selon la réponse
   if (attending === 'no') {
-    q.run('UPDATE guests SET table_id = NULL, table_name = NULL, seat_numbers = NULL WHERE id = ?', guest.id);
-    if (oldTableId) recomputeTableSeats(oldTableId);
+    await store.updateGuest(guest.id, { table_id: null, table_name: null, seat_numbers: null });
+    if (oldTableId) await recomputeTableSeats(oldTableId);
   } else if (oldTableId) {
-    recomputeTableSeats(oldTableId);
+    await recomputeTableSeats(oldTableId);
   } else {
-    assignGuestToTable(w.id, guest.id, 'auto');
+    await assignGuestToTable(w.id, guest.id, 'auto');
   }
 
-  const updatedGuest = q.get('SELECT * FROM guests WHERE id = ?', guest.id);
+  const updatedGuest = await store.getGuestById(guest.id);
   await U.notify(`${attending === 'yes' ? '✅' : '❌'} RSVP ${U.coupleNames(w)} : ${updatedGuest.name} ${attending === 'yes' ? `vient (${count} pers.)${updatedGuest.table_name ? ' · ' + updatedGuest.table_name : ''}` : 'ne vient pas (place libérée)'}`);
   res.redirect(`/i/${w.slug}/merci?g=${guest.token}`);
-});
+}));
 
-router.get('/i/:slug/merci', loadWedding, (req, res) => {
-  const guest = q.get('SELECT * FROM guests WHERE token = ? AND wedding_id = ?', req.query.g || '', req.w.id);
+router.get('/i/:slug/merci', loadWedding, asyncRoute(async (req, res) => {
+  const guest = await store.getGuestByToken(req.query.g || '', req.w.id);
   if (!guest) return res.redirect(`/i/${req.w.slug}`);
   res.render('rsvp-merci', { w: req.w, guest });
-});
+}));
 
 // Pass d'entrée (QR) pour le contrôle à l'entrée de la salle
-router.get('/i/:slug/pass/:token', loadWedding, async (req, res) => {
-  const guest = q.get('SELECT * FROM guests WHERE token = ? AND wedding_id = ?', req.params.token, req.w.id);
+router.get('/i/:slug/pass/:token', loadWedding, asyncRoute(async (req, res) => {
+  const guest = await store.getGuestByToken(req.params.token, req.w.id);
   if (!guest || guest.status !== 'yes') return res.redirect(`/i/${req.w.slug}`);
   const qr = await QRCode.toDataURL(`${U.BASE_URL()}/espace/${req.w.slug}/checkin/${guest.token}`, { margin: 1, width: 600 });
   res.render('pass', { w: req.w, guest, qr });
-});
+}));
 
 // Billet QR téléchargeable (SVG haute définition intégrant QR + Nom de l'invité + Nom de la Table)
-router.get('/i/:slug/pass/:token/ticket.svg', loadWedding, async (req, res) => {
-  const guest = q.get('SELECT * FROM guests WHERE token = ? AND wedding_id = ?', req.params.token, req.w.id);
+router.get('/i/:slug/pass/:token/ticket.svg', loadWedding, asyncRoute(async (req, res) => {
+  const guest = await store.getGuestByToken(req.params.token, req.w.id);
   if (!guest || guest.status !== 'yes') return res.redirect(`/i/${req.w.slug}`);
   const qrSvg = await QRCode.toString(`${U.BASE_URL()}/espace/${req.w.slug}/checkin/${guest.token}`, {
     type: 'svg', margin: 1, width: 280,
@@ -167,7 +192,7 @@ router.get('/i/:slug/pass/:token/ticket.svg', loadWedding, async (req, res) => {
   const viewBoxMatch = qrSvg.match(/viewBox="([^"]+)"/i);
   const vb = viewBoxMatch ? viewBoxMatch[1] : '0 0 33 33';
   const escXml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const tableLabel = guest.table_name ? guest.table_name.toUpperCase() : 'TABLE ATTRIBUÉE À L\'ACCUEIL';
+  const tableLabel = guest.table_name ? guest.table_name.toUpperCase() : "TABLE ATTRIBUÉE À L'ACCUEIL";
   const seatsLabel = guest.seat_numbers ? `Siège(s) n° ${guest.seat_numbers}` : `${guest.attending_count} place(s) assise(s)`;
   const catLabel = U.GUEST_CATEGORIES[guest.category]?.short || '';
 
@@ -198,12 +223,15 @@ router.get('/i/:slug/pass/:token/ticket.svg', loadWedding, async (req, res) => {
   res.type('image/svg+xml');
   if (req.query.dl) res.attachment(`pass-${req.w.slug}-${U.slugify(guest.name)}.svg`);
   res.send(svg);
-});
+}));
 
-router.get('/i/:slug/qr.png', loadWedding, async (req, res) => {
-  res.type('png');
-  QRCode.toFileStream(res, U.inviteUrl(req.w), { width: Math.min(1200, parseInt(req.query.size, 10) || 600), margin: 2 });
-});
+router.get('/i/:slug/qr.png', loadWedding, asyncRoute(async (req, res) => {
+  const buf = await QRCode.toBuffer(U.inviteUrl(req.w), {
+    width: Math.min(1200, parseInt(req.query.size, 10) || 600),
+    margin: 2,
+  });
+  res.type('png').send(buf);
+}));
 
 router.get('/i/:slug/calendar.ics', loadWedding, (req, res) => {
   const w = req.w;
@@ -221,7 +249,7 @@ router.get('/i/:slug/calendar.ics', loadWedding, (req, res) => {
 });
 
 // ---------- Cagnotte Directe USSD (MoMo & Orange Money) ----------
-router.post('/i/:slug/cagnotte', cagnotteLimiter, checkHoneypot, loadWedding, async (req, res) => {
+router.post('/i/:slug/cagnotte', cagnotteLimiter, checkHoneypot, loadWedding, asyncRoute(async (req, res) => {
   const w = req.w;
   const amount = parseInt(String(req.body.amount || '').replace(/\D/g, ''), 10);
   if (!w.cagnotte_enabled || w.status !== 'published') return res.redirect(`/i/${w.slug}#cagnotte`);
@@ -234,21 +262,29 @@ router.post('/i/:slug/cagnotte', cagnotteLimiter, checkHoneypot, loadWedding, as
   const message = String(req.body.message || '').trim().slice(0, 300) || null;
   const trxRef = String(req.body.trx_ref || req.body.provider_ref || '').trim().slice(0, 60) || null;
 
-  q.run(
-    "INSERT INTO contributions (wedding_id, name, phone, amount, message, reference, provider_ref, provider, status, paid_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))",
-    w.id, name, phone || null, amount, message, reference, trxRef, operator, 'pending'
-  );
+  await store.insertContribution({
+    wedding_id: w.id,
+    name,
+    phone: phone || null,
+    amount,
+    message,
+    reference,
+    provider_ref: trxRef,
+    provider: operator,
+    status: 'pending',
+    paid_at: nowStr(),
+  });
 
   await U.notify(
     `💰 Cagnotte ${U.coupleNames(w)} : ${U.fmtMoney(amount)} de ${name} (${operator === 'om' ? 'Orange Money' : 'MTN MoMo'})${trxRef ? ' [Réf: ' + trxRef + ']' : ''}${message ? ' | « ' + message + ' »' : ''}`
   );
 
   res.redirect(`/i/${w.slug}?ok=cagnotte_merci&c=${reference}#cagnotte`);
-});
+}));
 
-router.get('/paiement/retour', async (req, res) => {
+router.get('/paiement/retour', asyncRoute(async (req, res) => {
   const refs = [req.query.reference, req.query.trxref, req.query.notchpay_trxref].filter(Boolean).map(String);
-  let contrib = refs.map((r) => q.get('SELECT * FROM contributions WHERE reference = ? OR provider_ref = ?', r, r)).find(Boolean);
+  let contrib = await store.findContributionByRefs(refs);
   if (!contrib) return res.status(404).render('error', { title: 'Paiement introuvable', message: 'Référence de paiement inconnue.' });
 
   if (contrib.status === 'pending') {
@@ -259,25 +295,26 @@ router.get('/paiement/retour', async (req, res) => {
       else if (['failed', 'canceled', 'expired'].includes(trx.status)) await markContribution(contrib, 'failed');
       break;
     }
-    contrib = q.get('SELECT * FROM contributions WHERE id = ?', contrib.id);
+    contrib = await store.getContributionById(contrib.id);
   }
-  const w = q.get('SELECT * FROM weddings WHERE id = ?', contrib.wedding_id);
+  const w = await store.getWeddingById(contrib.wedding_id);
   res.render('paiement-retour', { w, contrib });
-});
+}));
 
 // Mode démo : simule l'écran de paiement MoMo/OM (aucune vraie transaction)
-router.get('/paiement/demo', (req, res) => {
+router.get('/paiement/demo', asyncRoute(async (req, res) => {
   if (payments.mode() !== 'demo') return res.redirect('/');
-  const contrib = q.get('SELECT * FROM contributions WHERE reference = ?', req.query.reference || '');
+  const contrib = await store.getContributionByRef(req.query.reference || '');
   if (!contrib) return res.redirect('/');
-  res.render('paiement-demo', { contrib, w: q.get('SELECT * FROM weddings WHERE id = ?', contrib.wedding_id) });
-});
-router.post('/paiement/demo', async (req, res) => {
+  const w = await store.getWeddingById(contrib.wedding_id);
+  res.render('paiement-demo', { contrib, w });
+}));
+router.post('/paiement/demo', asyncRoute(async (req, res) => {
   if (payments.mode() !== 'demo') return res.redirect('/');
-  const contrib = q.get('SELECT * FROM contributions WHERE reference = ?', req.body.reference || '');
+  const contrib = await store.getContributionByRef(req.body.reference || '');
   if (!contrib) return res.redirect('/');
   await markContribution(contrib, req.body.result === 'ok' ? 'complete' : 'failed');
   res.redirect(`/paiement/retour?reference=${encodeURIComponent(contrib.reference)}`);
-});
+}));
 
 module.exports = router;

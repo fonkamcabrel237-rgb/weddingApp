@@ -11,9 +11,10 @@
     "test": "node --no-warnings --test tests/core.test.js tests/integration.test.js"
   },
   "engines": {
-    "node": ">=22.13"
+    "node": ">=20"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",

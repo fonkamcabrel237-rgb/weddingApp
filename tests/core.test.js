@@ -1,15 +1,16 @@
-// Test de validation unitaire et fonctionnelle (hors Happy Path)
+// Tests unitaires et fonctionnels (Logique métier, Supabase Store, Storage CDN, Webhooks, Thèmes)
 const assert = require('node:assert');
 const test = require('node:test');
+const crypto = require('crypto');
 
-const path = require('path');
 const U = require('../src/utils');
 const {
   createWedding, addGuest, importGuests, stats,
   addTable, assignGuestToTable, autoAssignTables, getTablesWithOccupancy, recomputeTableSeats,
 } = require('../src/weddings');
 const payments = require('../src/payments');
-const { q } = require('../src/db');
+const { store, createSupabaseStore } = require('../src/db');
+const { getPublicMediaUrl, uploadToSupabaseStorage, deleteFromSupabaseStorage } = require('../src/supabase');
 
 test('1. Normalisation des numéros de téléphone camerounais', () => {
   assert.strictEqual(U.normalizePhone('657664546'), '237657664546', 'Doit préfixer 237');
@@ -19,53 +20,53 @@ test('1. Normalisation des numéros de téléphone camerounais', () => {
   assert.strictEqual(U.normalizePhone(null), '', 'Doit gérer null sans crasher');
 });
 
-test('2. Création de faire-part et unicité du slug', () => {
-  const w1 = createWedding({
+test('2. Création de faire-part et unicité du slug', async () => {
+  const w1 = await createWedding({
     bride: 'TestBride',
     groom: 'TestGroom',
-    slug: 'test-couple-unique'
+    slug: 'test-couple-unique',
   });
   assert.strictEqual(w1.slug, 'test-couple-unique');
 
-  // Conflit volontaire de slug
-  const w2 = createWedding({
+  const w2 = await createWedding({
     bride: 'TestBride',
     groom: 'TestGroom',
-    slug: 'test-couple-unique'
+    slug: 'test-couple-unique',
   });
   assert.strictEqual(w2.slug, 'test-couple-unique-2', 'Doit générer un slug incrémenté en cas de doublon');
 
-  // Nettoyage
-  q.run('DELETE FROM weddings WHERE id IN (?, ?)', w1.id, w2.id);
+  await store.deleteWedding(w1.id);
+  await store.deleteWedding(w2.id);
 });
 
-test('3. Gestion des invités et calcul des statistiques (RSVP + Cagnotte)', () => {
-  const w = createWedding({ bride: 'Alice', groom: 'Bob', slug: 'test-stats-wedding' });
+test('3. Gestion des invités et calcul des statistiques (RSVP + Cagnotte)', async () => {
+  const w = await createWedding({ bride: 'Alice', groom: 'Bob', slug: 'test-stats-wedding' });
 
-  // Ajout direct
-  const g1 = addGuest(w.id, { name: 'Invité 1', phone: '657664546', seats: 2 });
+  const g1 = await addGuest(w.id, { name: 'Invité 1', phone: '657664546', seats: 2 });
   assert.strictEqual(g1.seats, 2);
   assert.strictEqual(g1.status, 'pending');
 
-  // Import textuel (formats multiples)
-  const count = importGuests(w.id, 'Invité 2, 690112233, 3\nInvité 3; 677889900; 1\nLigne Invalide sans nom');
+  const count = await importGuests(w.id, 'Invité 2, 690112233, 3\nInvité 3; 677889900; 1\nLigne Invalide sans nom');
   assert.strictEqual(count, 3);
 
-  // Simulation réponse RSVP
-  q.run("UPDATE guests SET status = 'yes', attending_count = 2 WHERE id = ?", g1.id);
+  await store.updateGuest(g1.id, { status: 'yes', attending_count: 2 });
 
-  // Simulation don cagnotte
-  q.run(`INSERT INTO contributions (wedding_id, name, phone, amount, reference, status)
-         VALUES (?, 'Donateur', '237657664546', 25000, 'ref-test-stats-01', 'complete')`, w.id);
+  await store.insertContribution({
+    wedding_id: w.id,
+    name: 'Donateur',
+    phone: '237657664546',
+    amount: 25000,
+    reference: 'ref-test-stats-01',
+    status: 'complete',
+  });
 
-  const s = stats(w.id);
+  const s = await stats(w.id);
   assert.strictEqual(s.guests.yes, 1);
   assert.strictEqual(s.guests.people, 2);
   assert.strictEqual(s.cagnotte.total, 25000);
   assert.strictEqual(s.cagnotte.count, 1);
 
-  // Nettoyage
-  q.run('DELETE FROM weddings WHERE id = ?', w.id);
+  await store.deleteWedding(w.id);
 });
 
 test('4. Sécurité des webhooks Notch Pay (Validation de signature)', () => {
@@ -73,7 +74,6 @@ test('4. Sécurité des webhooks Notch Pay (Validation de signature)', () => {
   const hashKey = 'hsk_test_secret_12345';
   process.env.NOTCHPAY_WEBHOOK_HASH = hashKey;
 
-  const crypto = require('crypto');
   const validSignature = crypto.createHmac('sha256', hashKey).update(rawBody).digest('hex');
   const invalidSignature = 'faux_hash_signature_invalide';
 
@@ -82,71 +82,149 @@ test('4. Sécurité des webhooks Notch Pay (Validation de signature)', () => {
   assert.strictEqual(payments.verifyWebhookSignature(rawBody, null), false, 'Doit rejeter une signature manquante');
 });
 
-test('5. Gestion des tables par intimité, placement auto et anti-surcharge', () => {
-  const w = createWedding({ bride: 'Nadine', groom: 'Samuel', slug: 'test-tables-wedding', max_guests: 20 });
+test('5. Gestion des tables par intimité, placement auto et anti-surcharge', async () => {
+  const w = await createWedding({ bride: 'Nadine', groom: 'Samuel', slug: 'test-tables-wedding', max_guests: 20 });
 
-  // Les mariés créent leurs tables avec leurs noms et capacités
-  const tVip = addTable(w.id, { name: 'Table Baham VIP', capacity: 4, category: 'vip_mariee' });
-  const tAmis = addTable(w.id, { name: 'Table Kribi Amis', capacity: 4, category: 'amis' });
+  const tVip = await addTable(w.id, { name: 'Table Baham VIP', capacity: 4, category: 'vip_mariee' });
+  const tAmis = await addTable(w.id, { name: 'Table Kribi Amis', capacity: 4, category: 'amis' });
 
-  // Ajout d'un couple VIP de 2 places -> auto-placé sur Table Baham VIP (Sièges 1-2)
-  const g1 = addGuest(w.id, { name: 'M. & Mme Njoya', phone: '690001122', seats: 2, category: 'vip_mariee', table_id: 'auto' });
+  const g1 = await addGuest(w.id, { name: 'M. & Mme Njoya', phone: '690001122', seats: 2, category: 'vip_mariee', table_id: 'auto' });
   assert.strictEqual(g1.table_name, 'Table Baham VIP');
   assert.strictEqual(g1.seat_numbers, '1-2');
 
-  // Ajout d'une famille VIP de 3 places -> dépasse la capacité restante (2 places libres sur 4) -> ne doit pas surcharger
-  const g2 = addGuest(w.id, { name: 'Famille Kamga', phone: '690003344', seats: 3, category: 'vip_mariee', table_id: 'auto' });
-  assert.strictEqual(g2.table_id, null, 'Ne doit pas surcharger une table qui n\'a que 2 places libres');
+  const g2 = await addGuest(w.id, { name: 'Famille Kamga', phone: '690003344', seats: 3, category: 'vip_mariee', table_id: 'auto' });
+  assert.strictEqual(g2.table_id, null, "Ne doit pas surcharger une table qui n'a que 2 places libres");
 
-  // Tentative de forcer manuellement g2 sur tVip -> doit retourner une erreur
-  const forced = assignGuestToTable(w.id, g2.id, tVip.id);
+  const forced = await assignGuestToTable(w.id, g2.id, tVip.id);
   assert.strictEqual(forced.ok, false, 'Doit bloquer le dépassement de capacité de la table');
 
-  // Ajout d'un ami (2 places) sans table puis autoAssignTables
-  const g3 = addGuest(w.id, { name: 'Cédric & Laura', phone: '677112233', seats: 2, category: 'amis', table_id: 'none' });
-  const resAuto = autoAssignTables(w.id);
+  const g3 = await addGuest(w.id, { name: 'Cédric & Laura', phone: '677112233', seats: 2, category: 'amis', table_id: 'none' });
+  const resAuto = await autoAssignTables(w.id);
   assert.strictEqual(resAuto.placed, 1);
-  const g3Updated = q.get('SELECT * FROM guests WHERE id = ?', g3.id);
+  const g3Updated = await store.getGuestById(g3.id);
   assert.strictEqual(g3Updated.table_name, 'Table Kribi Amis');
   assert.strictEqual(g3Updated.seat_numbers, '1-2');
 
-  // Si M. & Mme Njoya déclinent (status = 'no'), leurs 2 places sur Table Baham VIP se libèrent
-  q.run("UPDATE guests SET status = 'no', attending_count = 0 WHERE id = ?", g1.id);
-  recomputeTableSeats(tVip.id);
-  const tablesAfter = getTablesWithOccupancy(w.id);
+  await store.updateGuest(g1.id, { status: 'no', attending_count: 0 });
+  await recomputeTableSeats(tVip.id);
+  const tablesAfter = await getTablesWithOccupancy(w.id);
   const vipAfter = tablesAfter.find((t) => t.id === tVip.id);
   assert.strictEqual(vipAfter.occupied, 0);
   assert.strictEqual(vipAfter.free, 4);
+  assert.ok(tAmis.id);
 
-  q.run('DELETE FROM weddings WHERE id = ?', w.id);
+  await store.deleteWedding(w.id);
 });
 
 test('6. Moteur colorimétrique de thème sur-mesure (contraste automatique)', () => {
-  // Fond clair (Terracotta & Ivoire) -> texte sombre automatique
   const lightStyle = U.customThemeStyle({ theme: 'custom', custom_bg: '#fdf8f4', custom_accent: '#c85a32' });
   assert.ok(lightStyle.includes('--bg:#fdf8f4'), 'Doit injecter le fond clair choisi');
-  assert.ok(lightStyle.includes('--accent:#c85a32'), 'Doit injecter la couleur d\'accent choisie');
+  assert.ok(lightStyle.includes('--accent:#c85a32'), "Doit injecter la couleur d'accent choisie");
   assert.ok(lightStyle.includes('--text:#221b16'), 'Doit choisir automatiquement un texte sombre sur fond clair');
 
-  // Fond sombre (Bleu Nuit & Or) -> texte clair automatique
   const darkStyle = U.customThemeStyle({ theme: 'custom', custom_bg: '#0c1629', custom_accent: '#d4af37' });
   assert.ok(darkStyle.includes('--bg:#0c1629'), 'Doit injecter le fond sombre choisi');
   assert.ok(darkStyle.includes('--text:#f5f0e6'), 'Doit choisir automatiquement un texte ivoire sur fond sombre');
 });
 
-test('7. Chiffrement AES-256-GCM des sauvegardes Cloud (Cloudinary + Render)', () => {
-  const { encryptBuffer, decryptBuffer } = require('../src/cloud-sync');
-  const secret = 'test-cloudinary-api-secret-key';
-  const original = Buffer.from('SQLite format 3 - Données secrètes mariage Grâce & Junior');
+test('7. Driver Supabase PostgreSQL & Supabase Storage CDN (Vercel Serverless)', async () => {
+  // Simulation d'un client @supabase/supabase-js en mémoire pour tester 100% du driver Supabase
+  const tables = { weddings: [], guests: [], contributions: [] };
+  let autoId = 1;
 
-  const encrypted = encryptBuffer(original, secret);
-  assert.notDeepStrictEqual(encrypted, original, 'Le buffer chiffré doit être différent de l\'original');
-  assert.strictEqual(encrypted.subarray(0, 4).toString('utf8'), 'NDL1', 'Doit contenir l\'en-tête magique NDL1');
+  function makeQuery(tableName) {
+    let filters = [];
+    let pendingAction = 'select';
+    let payload = null;
+    let limitN = null;
 
-  const decrypted = decryptBuffer(encrypted, secret);
-  assert.deepStrictEqual(decrypted, original, 'Le déchiffrement avec la bonne clé doit restituer la base intacte');
+    const builder = {
+      select() { return builder; },
+      insert(row) { pendingAction = 'insert'; payload = row; return builder; },
+      update(patch) { pendingAction = 'update'; payload = patch; return builder; },
+      delete() { pendingAction = 'delete'; return builder; },
+      eq(col, val) { filters.push((r) => r[col] === val); return builder; },
+      neq(col, val) { filters.push((r) => r[col] !== val); return builder; },
+      is(col, val) { filters.push((r) => (val === null ? r[col] == null : r[col] === val)); return builder; },
+      order() { return builder; },
+      limit(n) { limitN = n; return builder; },
+      async single() {
+        const res = await builder.exec();
+        return { data: res.data[0] || null, error: null };
+      },
+      async maybeSingle() {
+        const res = await builder.exec();
+        return { data: res.data[0] || null, error: null };
+      },
+      async exec() {
+        const arr = tables[tableName];
+        if (pendingAction === 'insert') {
+          const row = { id: autoId++, views: 0, ...payload };
+          arr.push(row);
+          return { data: [row], error: null };
+        }
+        const matched = arr.filter((r) => filters.every((fn) => fn(r)));
+        if (pendingAction === 'update') {
+          matched.forEach((r) => Object.assign(r, payload));
+          return { data: matched, error: null };
+        }
+        if (pendingAction === 'delete') {
+          tables[tableName] = arr.filter((r) => !filters.every((fn) => fn(r)));
+          return { data: matched, error: null };
+        }
+        return { data: limitN ? matched.slice(0, limitN) : matched, error: null };
+      },
+      then(resolve, reject) { return builder.exec().then(resolve, reject); },
+    };
+    return builder;
+  }
 
-  assert.throws(() => {
-    decryptBuffer(encrypted, 'mauvaise-cle-secrete');
-  }, 'Doit rejeter le déchiffrement si la clé ou l\'intégrité est invalide');
+  const uploadedFiles = new Map();
+  const mockSupabaseClient = {
+    from: (t) => makeQuery(t),
+    storage: {
+      getBucket: async () => ({ data: { id: 'uploads', public: true }, error: null }),
+      from: () => ({
+        upload: async (name, buf) => { uploadedFiles.set(name, buf); return { data: { path: name }, error: null }; },
+        remove: async (names) => { names.forEach((n) => uploadedFiles.delete(n)); return { data: names, error: null }; },
+      }),
+    },
+  };
+
+  const supaStore = createSupabaseStore(mockSupabaseClient);
+  assert.strictEqual(supaStore.mode, 'supabase');
+
+  const w = await supaStore.insertWedding({ slug: 'supa-test', bride: 'Amina', groom: 'Lionel', status: 'published', access_key: 'secret123' });
+  assert.strictEqual(w.bride, 'Amina');
+  await supaStore.incrementWeddingViews(w.id, w.views);
+  const wAfter = await supaStore.getWeddingBySlug('supa-test');
+  assert.strictEqual(wAfter.views, 1);
+
+  const g = await supaStore.insertGuest({ wedding_id: w.id, name: 'Éric Mboua', phone: '237699001122', token: 'tok99', status: 'yes' });
+  const foundByCase = await supaStore.findGuestForRsvp(w.id, { name: '  éric mboua  ' });
+  assert.strictEqual(foundByCase.id, g.id, 'Doit retrouver un invité sans sensibilité à la casse ni aux espaces');
+
+  await supaStore.checkinGuest('tok99', w.id);
+  const checked = await supaStore.getGuestByToken('tok99', w.id);
+  assert.ok(checked.checked_in_at && checked.checked_in_at.length === 19, 'Horodatage compatible avec slice(11, 16)');
+
+  // Test génération d'URL CDN Supabase Storage
+  const prevUrl = process.env.SUPABASE_URL;
+  const prevKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_URL = 'https://projetdemo.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test-key';
+  try {
+    const cdnUrl = await uploadToSupabaseStorage('mariage-photo.webp', Buffer.from('webpdata'), 'image/webp', mockSupabaseClient);
+    assert.strictEqual(cdnUrl, 'https://projetdemo.supabase.co/storage/v1/object/public/uploads/mariage-photo.webp');
+    assert.strictEqual(getPublicMediaUrl('mariage-photo.webp'), cdnUrl);
+    await deleteFromSupabaseStorage(cdnUrl, mockSupabaseClient);
+    assert.strictEqual(uploadedFiles.has('mariage-photo.webp'), false, 'La photo doit être supprimée du bucket Supabase');
+  } finally {
+    if (prevUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = prevUrl;
+    if (prevKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = prevKey;
+  }
+
+  // Vérifier que le point d'entrée Vercel api/index.js s'exporte sans démarrer de port TCP
+  const vercelHandler = require('../api/index');
+  assert.strictEqual(typeof vercelHandler, 'function', 'api/index.js doit exporter une fonction Express compatible Vercel');
 });

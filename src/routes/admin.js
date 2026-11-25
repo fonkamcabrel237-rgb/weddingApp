@@ -1,13 +1,14 @@
 // Back-office : commandes, faire-part, encaissements, partenaires.
 const express = require('express');
 const crypto = require('crypto');
-const { q } = require('../db');
+const { store } = require('../db');
 const U = require('../utils');
-const { upload, uploadAudio, saveImage, saveAudio, resolveMusicUrl, deleteImage } = require('../uploads');
-const { createWedding, stats } = require('../weddings');
+const { upload, uploadAudio, saveImage, saveAudio, createAudioUploadSession, resolveMusicUrl, deleteImage } = require('../uploads');
+const { createWedding, stats, ensureDemoSeeded } = require('../weddings');
 const { requireAdmin, cookieOpts } = require('../auth');
 
 const router = express.Router();
+const { asyncRoute } = U;
 
 // ---------- Connexion ----------
 const attempts = new Map();
@@ -41,155 +42,244 @@ router.get('/logout', (req, res) => { res.clearCookie('adm'); res.redirect('/');
 router.use(requireAdmin);
 
 // ---------- Tableau de bord ----------
-router.get('/', (req, res) => {
-  const weddings = q.all('SELECT * FROM weddings ORDER BY (status=\'archived\'), event_date IS NULL, event_date');
-  const leads = q.all("SELECT * FROM leads ORDER BY id DESC LIMIT 50");
+router.get('/', asyncRoute(async (req, res) => {
+  await ensureDemoSeeded();
+  const [weddings, leads, completedContribs] = await Promise.all([
+    store.listWeddings(),
+    store.listLeads(50),
+    store.listAllCompletedContributions(),
+  ]);
   const fee = Number(process.env.CAGNOTTE_FEE_PERCENT || 0);
-  const k = q.get(`SELECT
-      COALESCE(SUM(CASE WHEN paid=1 THEN price END),0) AS cashed,
-      COALESCE(SUM(CASE WHEN paid=0 AND status<>'archived' THEN price END),0) AS pending,
-      COALESCE(SUM(CASE WHEN paid=1 THEN partner_commission END),0) AS commissions,
-      SUM(status='published') AS published, COUNT(*) AS total FROM weddings`);
-  const cag = q.get("SELECT COALESCE(SUM(amount),0) AS total FROM contributions WHERE status='complete'");
-  const toPay = q.get(`SELECT COALESCE(SUM(c.amount),0) AS total FROM contributions c JOIN weddings w ON w.id=c.wedding_id
-      WHERE c.status='complete' AND w.payout_done=0`);
-  const partners = q.all(`SELECT partner, COUNT(*) AS n, SUM(paid) AS paid, COALESCE(SUM(CASE WHEN paid=1 THEN partner_commission END),0) AS due
-      FROM weddings WHERE partner IS NOT NULL AND partner <> '' GROUP BY partner ORDER BY n DESC`);
-  const rows = weddings.map((w) => ({ ...w, s: stats(w.id) }));
-  res.render('admin/dashboard', {
-    weddings: rows, leads, partners,
-    kpi: { ...k, cagnotte: cag.total, cagFees: Math.round(cag.total * fee / 100), toPay: Math.round(toPay.total * (100 - fee) / 100) },
-  });
-});
 
-router.post('/leads/:id/status', (req, res) => {
-  q.run('UPDATE leads SET status = ? WHERE id = ?', req.body.status, req.params.id);
+  let cashed = 0;
+  let pending = 0;
+  let commissions = 0;
+  let published = 0;
+  const unpaidPayoutWeddingIds = new Set();
+  const partnerMap = new Map();
+
+  for (const w of weddings) {
+    if (w.paid) {
+      cashed += Number(w.price) || 0;
+      commissions += Number(w.partner_commission) || 0;
+    } else if (w.status !== 'archived') {
+      pending += Number(w.price) || 0;
+    }
+    if (w.status === 'published') published++;
+    if (!w.payout_done) unpaidPayoutWeddingIds.add(w.id);
+
+    if (w.partner && String(w.partner).trim()) {
+      const key = String(w.partner).trim();
+      const cur = partnerMap.get(key) || { partner: key, n: 0, paid: 0, due: 0 };
+      cur.n += 1;
+      cur.paid += w.paid ? 1 : 0;
+      cur.due += w.paid ? (Number(w.partner_commission) || 0) : 0;
+      partnerMap.set(key, cur);
+    }
+  }
+
+  const partners = [...partnerMap.values()].sort((a, b) => b.n - a.n);
+  const cagTotal = completedContribs.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+  const toPayTotal = completedContribs
+    .filter((c) => unpaidPayoutWeddingIds.has(c.wedding_id))
+    .reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+
+  const rows = await Promise.all(weddings.map(async (w) => ({ ...w, s: await stats(w.id) })));
+
+  res.render('admin/dashboard', {
+    weddings: rows,
+    leads,
+    partners,
+    kpi: {
+      cashed,
+      pending,
+      commissions,
+      published,
+      total: weddings.length,
+      cagnotte: cagTotal,
+      cagFees: Math.round((cagTotal * fee) / 100),
+      toPay: Math.round((toPayTotal * (100 - fee)) / 100),
+    },
+  });
+}));
+
+router.post('/leads/:id/status', asyncRoute(async (req, res) => {
+  await store.updateLead(req.params.id, { status: req.body.status });
   res.redirect(`/admin?ok=${encodeURIComponent('Statut de la commande mis à jour')}#leads`);
-});
+}));
 
 // ---------- Faire-part ----------
 router.get('/mariages/new', (req, res) => res.render('admin/wedding-form', { w: null, photos: [], program: [] }));
 
-router.post('/mariages', async (req, res, next) => {
-  try {
-    if (!req.body.bride || !req.body.groom) return res.redirect('/admin/mariages/new');
-    req.body.music_url = await resolveMusicUrl(req.body.music_url);
-    const w = createWedding({ ...req.body, program: cleanProgram(req.body.program) });
-    applyUpdate(w.id, req.body);
-    res.redirect(`/admin/mariages/${w.id}?ok=Faire-part%20cr%C3%A9%C3%A9`);
-  } catch (e) { next(e); }
-});
+router.post('/mariages', asyncRoute(async (req, res) => {
+  if (!req.body.bride || !req.body.groom) return res.redirect('/admin/mariages/new');
+  req.body.music_url = await resolveMusicUrl(req.body.music_url);
+  const w = await createWedding({ ...req.body, program: cleanProgram(req.body.program) });
+  await applyUpdate(w.id, req.body);
+  res.redirect(`/admin/mariages/${w.id}?ok=Faire-part%20cr%C3%A9%C3%A9`);
+}));
 
-// Upload direct d'un fichier audio (.mp3, .m4a, .wav, .ogg) depuis l'ordinateur ou le téléphone
-router.post('/upload-audio', uploadAudio.single('audio'), (req, res) => {
-  if (!req.file) return res.status(400).json({ ok: false, error: 'Aucun fichier audio valide reçu.' });
-  const url = saveAudio(req.file);
+// URL signée Supabase Storage pour uploader des MP3 > 4.5 Mo directement depuis le navigateur (contourne la limite Vercel)
+router.post('/upload-audio-url', asyncRoute(async (req, res) => {
+  const session = await createAudioUploadSession(req.body.filename || 'musique.mp3');
+  if (!session) return res.json({ ok: true, mode: 'local' });
+  res.json({ ok: true, mode: 'supabase', ...session });
+}));
+
+router.post('/save-audio-url', asyncRoute(async (req, res) => {
+  const url = String(req.body.url || '').trim();
+  if (!url) return res.status(400).json({ ok: false, error: 'URL audio manquante.' });
   if (req.body.wedding_id) {
-    q.run('UPDATE weddings SET music_url = ? WHERE id = ?', url, req.body.wedding_id);
+    await store.updateWedding(req.body.wedding_id, { music_url: url });
   }
   res.json({ ok: true, url });
-});
+}));
+
+// Upload direct d'un fichier audio (petits fichiers MP3 ou développement local)
+router.post('/upload-audio', uploadAudio.single('audio'), asyncRoute(async (req, res) => {
+  if (!req.file) return res.status(400).json({ ok: false, error: 'Aucun fichier audio valide reçu.' });
+  const url = await saveAudio(req.file);
+  if (req.body.wedding_id) {
+    await store.updateWedding(req.body.wedding_id, { music_url: url });
+  }
+  res.json({ ok: true, url });
+}));
 
 router.param('id', (req, res, next, id) => {
-  req.w = q.get('SELECT * FROM weddings WHERE id = ?', id);
-  if (!req.w) return res.redirect('/admin');
-  next();
+  store.getWeddingById(id)
+    .then((w) => {
+      if (!w) return res.redirect('/admin');
+      req.w = w;
+      next();
+    })
+    .catch(next);
 });
 
-router.get('/mariages/:id', (req, res) => {
+router.get('/mariages/:id', asyncRoute(async (req, res) => {
   const w = req.w;
+  const [photos, s, lead] = await Promise.all([
+    store.listPhotosByWedding(w.id),
+    stats(w.id),
+    w.lead_id ? store.getLeadById(w.lead_id) : Promise.resolve(null),
+  ]);
   res.render('admin/wedding-form', {
-    w, photos: q.all('SELECT * FROM photos WHERE wedding_id = ? ORDER BY position, id', w.id),
-    program: U.parseProgram(w), s: stats(w.id),
-    lead: w.lead_id ? q.get('SELECT * FROM leads WHERE id = ?', w.lead_id) : null,
+    w,
+    photos,
+    program: U.parseProgram(w),
+    s,
+    lead,
   });
-});
+}));
 
-router.post('/mariages/:id', async (req, res, next) => {
-  try {
-    req.body.music_url = await resolveMusicUrl(req.body.music_url);
-    applyUpdate(req.w.id, req.body);
-    res.redirect(`/admin/mariages/${req.w.id}?ok=Enregistr%C3%A9`);
-  } catch (e) { next(e); }
-});
+router.post('/mariages/:id', asyncRoute(async (req, res) => {
+  req.body.music_url = await resolveMusicUrl(req.body.music_url);
+  await applyUpdate(req.w.id, req.body);
+  res.redirect(`/admin/mariages/${req.w.id}?ok=Enregistr%C3%A9`);
+}));
 
-router.post('/mariages/:id/action', (req, res) => {
+router.post('/mariages/:id/action', asyncRoute(async (req, res) => {
   const w = req.w;
   const a = req.body.action;
-  if (a === 'publish') q.run("UPDATE weddings SET status='published' WHERE id = ?", w.id);
-  if (a === 'draft') q.run("UPDATE weddings SET status='draft' WHERE id = ?", w.id);
-  if (a === 'archive') q.run("UPDATE weddings SET status='archived' WHERE id = ?", w.id);
-  if (a === 'paid') q.run('UPDATE weddings SET paid = 1 - paid WHERE id = ?', w.id);
-  if (a === 'payout') q.run('UPDATE weddings SET payout_done = 1 - payout_done WHERE id = ?', w.id);
-  if (a === 'newkey') q.run('UPDATE weddings SET access_key = ? WHERE id = ?', U.token(12), w.id);
-  if (a === 'publish' && w.lead_id) q.run("UPDATE leads SET status='won' WHERE id = ?", w.lead_id);
+  if (a === 'publish') await store.updateWedding(w.id, { status: 'published' });
+  if (a === 'draft') await store.updateWedding(w.id, { status: 'draft' });
+  if (a === 'archive') await store.updateWedding(w.id, { status: 'archived' });
+  if (a === 'paid') await store.updateWedding(w.id, { paid: w.paid ? 0 : 1 });
+  if (a === 'payout') await store.updateWedding(w.id, { payout_done: w.payout_done ? 0 : 1 });
+  if (a === 'newkey') await store.updateWedding(w.id, { access_key: U.token(12) });
+  if (a === 'publish' && w.lead_id) await store.updateLead(w.lead_id, { status: 'won' });
   if (a === 'delete') {
-    q.all('SELECT filename FROM photos WHERE wedding_id = ?', w.id).forEach((p) => deleteImage(p.filename));
-    q.run('DELETE FROM weddings WHERE id = ?', w.id);
+    const photos = await store.listPhotosByWedding(w.id);
+    await Promise.all(photos.map((p) => deleteImage(p.filename)));
+    await store.deleteWedding(w.id);
     return res.redirect('/admin?ok=Supprim%C3%A9');
   }
   res.redirect(`/admin/mariages/${w.id}?ok=OK`);
-});
+}));
 
-router.post('/mariages/:id/photos', upload.array('photos', 40), async (req, res, next) => {
-  try {
-    let pos = (q.get('SELECT MAX(position) AS m FROM photos WHERE wedding_id = ?', req.w.id).m || 0) + 1;
-    for (const f of req.files || []) {
-      const name = await saveImage(f);
-      q.run('INSERT INTO photos (wedding_id, filename, position) VALUES (?,?,?)', req.w.id, name, pos++);
-      if (!req.w.cover_photo) { q.run('UPDATE weddings SET cover_photo = ? WHERE id = ?', name, req.w.id); req.w.cover_photo = name; }
+router.post('/mariages/:id/photos', upload.array('photos', 40), asyncRoute(async (req, res) => {
+  const existing = await store.listPhotosByWedding(req.w.id);
+  let pos = existing.reduce((m, p) => Math.max(m, p.position || 0), 0) + 1;
+  for (const f of req.files || []) {
+    const name = await saveImage(f);
+    await store.insertPhoto({ wedding_id: req.w.id, filename: name, position: pos++ });
+    if (!req.w.cover_photo) {
+      await store.updateWedding(req.w.id, { cover_photo: name });
+      req.w.cover_photo = name;
     }
-    res.redirect(`/admin/mariages/${req.w.id}?ok=Photos%20ajout%C3%A9es#photos`);
-  } catch (e) { next(e); }
-});
+  }
+  res.redirect(`/admin/mariages/${req.w.id}?ok=Photos%20ajout%C3%A9es#photos`);
+}));
 
-router.post('/mariages/:id/photos/:pid', (req, res) => {
-  const p = q.get('SELECT * FROM photos WHERE id = ? AND wedding_id = ?', req.params.pid, req.w.id);
-  if (p && req.body.action === 'cover') q.run('UPDATE weddings SET cover_photo = ? WHERE id = ?', p.filename, req.w.id);
+router.post('/mariages/:id/photos/:pid', asyncRoute(async (req, res) => {
+  const p = await store.getPhotoById(req.params.pid, req.w.id);
+  if (p && req.body.action === 'cover') {
+    await store.updateWedding(req.w.id, { cover_photo: p.filename });
+  }
   if (p && req.body.action === 'delete') {
-    q.run('DELETE FROM photos WHERE id = ?', p.id);
-    if (req.w.cover_photo === p.filename) q.run('UPDATE weddings SET cover_photo = NULL WHERE id = ?', req.w.id);
-    deleteImage(p.filename);
+    await store.deletePhoto(p.id);
+    if (req.w.cover_photo === p.filename) {
+      await store.updateWedding(req.w.id, { cover_photo: null });
+    }
+    await deleteImage(p.filename);
   }
   res.redirect(`/admin/mariages/${req.w.id}#photos`);
-});
+}));
 
 // ---------- Helpers ----------
 function cleanProgram(program) {
   const arr = Array.isArray(program) ? program : Object.values(program || {});
   return arr.map((p) => ({
-    title: String(p.title || '').trim(), date: String(p.date || '').trim(),
-    place: String(p.place || '').trim(), address: String(p.address || '').trim(),
+    title: String(p.title || '').trim(),
+    date: String(p.date || '').trim(),
+    place: String(p.place || '').trim(),
+    address: String(p.address || '').trim(),
   })).filter((p) => p.title);
 }
 
-function applyUpdate(id, b) {
+async function applyUpdate(id, b) {
   const plan = U.PLANS[b.plan] ? b.plan : 'prestige';
-  q.run(`UPDATE weddings SET
-      slug = COALESCE(NULLIF(?, ''), slug), plan = ?, price = ?, partner = ?, partner_commission = ?, event_type = ?,
-      bride = ?, groom = ?, headline = ?, story = ?, hashtag = ?, event_date = ?,
-      venue_name = ?, venue_address = ?, city = ?, maps_query = ?, program = ?,
-      dress_code = ?, theme = ?, custom_bg = ?, custom_accent = ?, music_url = ?, rsvp_deadline = ?, couple_phone = ?, couple_email = ?,
-      cagnotte_enabled = ?, cagnotte_goal = ?, cagnotte_text = ?,
-      momo_number = ?, momo_name = ?, om_number = ?, om_name = ?, updated_at = datetime('now')
-    WHERE id = ?`,
-    uniqueSlugFor(id, b.slug), plan, parseInt(b.price, 10) || U.PLANS[plan].price, b.partner || null,
-    parseInt(b.partner_commission, 10) || 0, b.event_type || 'mariage',
-    String(b.bride || '').trim(), String(b.groom || '').trim(), b.headline || null, b.story || null, b.hashtag || null,
-    b.event_date || null, b.venue_name || null, b.venue_address || null, b.city || null,
-    b.maps_query || [b.venue_name, b.venue_address, b.city].filter(Boolean).join(', ') || null,
-    JSON.stringify(cleanProgram(b.program)), b.dress_code || null, U.THEMES[b.theme] ? b.theme : 'royal',
-    U.sanitizeHex(b.custom_bg, '#faf6f0'), U.sanitizeHex(b.custom_accent, '#b8913f'),
-    b.music_url || null, b.rsvp_deadline || null, U.normalizePhone(b.couple_phone) || null, b.couple_email || null,
-    b.cagnotte_enabled ? 1 : 0, parseInt(String(b.cagnotte_goal || '').replace(/\D/g, ''), 10) || 0, b.cagnotte_text || null,
-    U.normalizePhone(b.momo_number) || null, b.momo_name || null, U.normalizePhone(b.om_number) || null, b.om_name || null,
-    id);
+  const nextSlug = await uniqueSlugFor(id, b.slug);
+  const patch = {
+    plan,
+    price: parseInt(b.price, 10) || U.PLANS[plan].price,
+    partner: b.partner || null,
+    partner_commission: parseInt(b.partner_commission, 10) || 0,
+    event_type: b.event_type || 'mariage',
+    bride: String(b.bride || '').trim(),
+    groom: String(b.groom || '').trim(),
+    headline: b.headline || null,
+    story: b.story || null,
+    hashtag: b.hashtag || null,
+    event_date: b.event_date || null,
+    venue_name: b.venue_name || null,
+    venue_address: b.venue_address || null,
+    city: b.city || null,
+    maps_query: b.maps_query || [b.venue_name, b.venue_address, b.city].filter(Boolean).join(', ') || null,
+    program: JSON.stringify(cleanProgram(b.program)),
+    dress_code: b.dress_code || null,
+    theme: U.THEMES[b.theme] ? b.theme : 'royal',
+    custom_bg: U.sanitizeHex(b.custom_bg, '#faf6f0'),
+    custom_accent: U.sanitizeHex(b.custom_accent, '#b8913f'),
+    music_url: b.music_url || null,
+    rsvp_deadline: b.rsvp_deadline || null,
+    couple_phone: U.normalizePhone(b.couple_phone) || null,
+    couple_email: b.couple_email || null,
+    cagnotte_enabled: b.cagnotte_enabled ? 1 : 0,
+    cagnotte_goal: parseInt(String(b.cagnotte_goal || '').replace(/\D/g, ''), 10) || 0,
+    cagnotte_text: b.cagnotte_text || null,
+    momo_number: U.normalizePhone(b.momo_number) || null,
+    momo_name: b.momo_name || null,
+    om_number: U.normalizePhone(b.om_number) || null,
+    om_name: b.om_name || null,
+  };
+  if (nextSlug) patch.slug = nextSlug;
+  await store.updateWedding(id, patch);
 }
 
-function uniqueSlugFor(id, wanted) {
+async function uniqueSlugFor(id, wanted) {
   const s = U.slugify(wanted);
   if (!s) return '';
-  const other = q.get('SELECT id FROM weddings WHERE slug = ? AND id <> ?', s, id);
+  const other = await store.findWeddingBySlugExceptId(s, id);
   return other ? '' : s;
 }
 

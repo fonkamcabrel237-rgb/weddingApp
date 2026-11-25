@@ -8,7 +8,7 @@
     const title = (guest ? guest.name + ', ' : '') + names + ' vous invitent';
     const venueQuery = w.maps_query || [w.venue_name, w.venue_address, w.city].filter(Boolean).join(', ');
     const desc = (w.event_date ? fmtDate(w.event_date) : '') + (w.city ? ' · ' + w.city : '') + ' — Ouvrez votre faire-part et confirmez votre présence.';
-    const inviteImg = w.cover_photo ? `${baseUrl}/uploads/${w.cover_photo}` : `${baseUrl}/static/img/og-cover.jpg`;
+    const inviteImg = w.cover_photo ? mediaUrl(w.cover_photo, baseUrl) : `${baseUrl}/static/img/og-cover.jpg`;
     const canonicalUrl = inviteUrl(w, guest);
   %>
   <title><%= names %> — <%= w.event_type === 'dot' ? 'Dot' : 'Mariage' %></title>
@@ -62,7 +62,7 @@
 
 <main id="top">
   <!-- HERO -->
-  <header class="hero" <% if (w.cover_photo) { %>style="--cover:url('/uploads/<%= w.cover_photo %>')"<% } %>>
+  <header class="hero" <% if (w.cover_photo) { %>style="--cover:url('<%= mediaUrl(w.cover_photo) %>')"<% } %>>
     <div class="hero-overlay"></div>
     <div class="hero-content reveal">
       <p class="small-caps"><%= w.headline || 'Nous nous disons OUI !' %></p>
@@ -151,7 +151,7 @@
     <div class="ornament">❦</div>
     <div class="gallery">
       <% photos.forEach(function(p, i) { %>
-        <button class="g-item" data-src="/uploads/<%= p.filename %>" aria-label="Photo <%= i + 1 %>"><img loading="lazy" src="/uploads/<%= p.filename %>" alt=""></button>
+        <button class="g-item" data-src="<%= mediaUrl(p.filename) %>" aria-label="Photo <%= i + 1 %>"><img loading="lazy" src="<%= mediaUrl(p.filename) %>" alt=""></button>
       <% }) %>
     </div>
   </section>

@@ -1,52 +1,23 @@
 // Tests d'intégration HTTP de bout en bout (Simule requêtes clients/mariés/admin)
 const test = require('node:test');
 const assert = require('node:assert');
-const http = require('node:http');
 
 // Charger variables et app
 require('dotenv').config();
 process.env.ADMIN_PASSWORD = 'test-secret-password';
 process.env.SESSION_SECRET = 'test-session-secret-random-32-chars';
 
-const express = require('express');
-const cookieParser = require('cookie-parser');
-const path = require('path');
-const { q } = require('../src/db');
-const utils = require('../src/utils');
-const payments = require('../src/payments');
-const { addGuest, addTable } = require('../src/weddings');
-
-const app = express();
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, '../views'));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(cookieParser(process.env.SESSION_SECRET));
-
-app.use((req, res, next) => {
-  Object.assign(res.locals, utils, {
-    brand: 'Ndolo Invitations',
-    businessWhatsapp: '237657664546',
-    businessEmail: 'contact@ndolos.site',
-    baseUrl: 'http://127.0.0.1:3001',
-    paymentMode: 'demo',
-    path: req.path,
-    flash: null,
-    flashError: null,
-  });
-  next();
-});
-
-app.use('/admin', require('../src/routes/admin'));
-app.use('/espace', require('../src/routes/couple'));
-app.use('/', require('../src/routes/public'));
+const app = require('../server');
+const { store } = require('../src/db');
+const { addGuest, addTable, ensureDemoSeeded } = require('../src/weddings');
 
 let server;
 const PORT = 3001;
 const BASE = `http://127.0.0.1:${PORT}`;
 
-test.before(() => {
-  return new Promise((resolve) => {
+test.before(async () => {
+  await ensureDemoSeeded();
+  await new Promise((resolve) => {
     server = app.listen(PORT, '127.0.0.1', () => resolve());
   });
 });
@@ -68,37 +39,35 @@ async function request(urlPath, options = {}) {
   return { status: res.status, headers: res.headers, body: text, cookies };
 }
 
-test('NIVEAU 2.1 — Consultation publique et cas d’erreur 404', async () => {
-  // Page d'accueil
+test('NIVEAU 2.1 — Consultation publique, Healthcheck et cas d’erreur 404', async () => {
+  const health = await request('/healthz');
+  assert.strictEqual(health.status, 200);
+  assert.ok(health.body.includes('"ok":true'), 'Le endpoint /healthz doit répondre ok: true');
+
   const home = await request('/');
   assert.strictEqual(home.status, 200);
   assert.ok(home.body.includes('Votre faire-part de mariage') || home.body.includes('Votre faire-part'), 'Doit afficher la landing page');
   assert.ok(home.body.includes('/confidentialite'), 'Doit contenir le lien vers la politique de confidentialité');
 
-  // Page de politique de confidentialité
   const privacy = await request('/confidentialite');
   assert.strictEqual(privacy.status, 200);
   assert.ok(privacy.body.includes('Politique de confidentialité'), 'Doit afficher la politique de confidentialité');
 
-  // Mariage démo existant
   const demo = await request('/i/demo');
   assert.strictEqual(demo.status, 200);
   assert.ok(demo.body.includes('Grâce'), 'Doit afficher le faire-part démo');
 
-  // Slug inexistant -> 404
   const notFound = await request('/i/mariage-inconnu-inexistant-404');
   assert.strictEqual(notFound.status, 404);
   assert.ok(notFound.body.includes('Invitation introuvable'), 'Doit afficher une page 404 propre');
 });
 
 test('NIVEAU 2.2 — Tunnel RSVP contrôlé par la BD des mariés & Pass QR avec Table', async () => {
-  const w = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
-  q.run('UPDATE weddings SET strict_rsvp = 1 WHERE id = ?', w.id);
+  const w = await store.getWeddingBySlug('demo');
+  await store.updateWedding(w.id, { strict_rsvp: 1 });
 
-  // Créer une table personnalisée pour le test
-  const table = addTable(w.id, { name: 'Table Royale Wouri', capacity: 6, category: 'vip_marie' });
+  const table = await addTable(w.id, { name: 'Table Royale Wouri', capacity: 6, category: 'vip_marie' });
 
-  // 1. Tentative d'incruste d'une personne NON enregistrée par les mariés -> doit être bloquée
   const strangerParams = new URLSearchParams({
     name: 'Inconnu Incruste',
     phone: '699999999',
@@ -113,10 +82,8 @@ test('NIVEAU 2.2 — Tunnel RSVP contrôlé par la BD des mariés & Pass QR avec
   assert.strictEqual(blockedRes.status, 302);
   assert.ok(blockedRes.headers.get('location').includes('err=not_on_list'), 'Doit bloquer une personne hors liste des mariés');
 
-  // 2. Les mariés ajoutent leur invité dans la BD
-  const invited = addGuest(w.id, { name: "Jean Eto'o", phone: '657664546', seats: 2, category: 'vip_marie', table_id: table.id });
+  const invited = await addGuest(w.id, { name: "Jean Eto'o", phone: '657664546', seats: 2, category: 'vip_marie', table_id: table.id });
 
-  // 3. L'invité enregistré confirme sa présence
   const params = new URLSearchParams({
     token: invited.token,
     name: "Jean Eto'o",
@@ -136,32 +103,29 @@ test('NIVEAU 2.2 — Tunnel RSVP contrôlé par la BD des mariés & Pass QR avec
   const location = rsvpRes.headers.get('location');
   assert.ok(location.includes('/merci?g='), 'Doit rediriger vers la page de remerciement');
 
-  const guest = q.get('SELECT * FROM guests WHERE id = ?', invited.id);
+  const guest = await store.getGuestById(invited.id);
   assert.strictEqual(guest.status, 'yes');
   assert.strictEqual(guest.attending_count, 2);
   assert.strictEqual(guest.table_name, 'Table Royale Wouri');
   assert.ok(guest.seat_numbers, 'Doit attribuer des numéros de sièges');
 
-  // 4. Accès au Pass QR et au billet SVG (Nom de l'invité + Nom de la Table)
   const passRes = await request(`/i/demo/pass/${guest.token}`);
   assert.strictEqual(passRes.status, 200);
-  assert.ok(passRes.body.includes('Jean Eto&#39;o') || passRes.body.includes("Jean Eto'o"), 'Le nom de l\'invité doit être affiché sur le pass');
+  assert.ok(passRes.body.includes('Jean Eto&#39;o') || passRes.body.includes("Jean Eto'o"), "Le nom de l'invité doit être affiché sur le pass");
   assert.ok(passRes.body.includes('Table Royale Wouri'), 'Le nom de la table doit être affiché sur le pass');
 
   const svgRes = await request(`/i/demo/pass/${guest.token}/ticket.svg`);
   assert.strictEqual(svgRes.status, 200);
-  assert.ok(svgRes.body.includes("Jean Eto'o"), 'Le billet QR SVG doit contenir le nom de l\'invité');
+  assert.ok(svgRes.body.includes("Jean Eto'o"), "Le billet QR SVG doit contenir le nom de l'invité");
   assert.ok(svgRes.body.includes('TABLE ROYALE WOURI'), 'Le billet QR SVG doit contenir le nom de la table');
 
-  // Nettoyage
-  q.run('DELETE FROM guests WHERE id = ?', guest.id);
-  q.run('DELETE FROM wedding_tables WHERE id = ?', table.id);
+  await store.deleteGuest(guest.id, w.id);
+  await store.deleteTableRow(w.id, table.id);
 });
 
 test('NIVEAU 2.3 — Tunnel Cagnotte MoMo / OM (USSD Direct & Validation Mariés)', async () => {
-  const w = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
+  const w = await store.getWeddingBySlug('demo');
 
-  // 1. Déclaration d'un don direct par un invité via le code USSD MoMo
   const contribParams = new URLSearchParams({
     name: 'Parrain Marc',
     phone: '657664546',
@@ -180,52 +144,45 @@ test('NIVEAU 2.3 — Tunnel Cagnotte MoMo / OM (USSD Direct & Validation Mariés
   const redirectUrl = initRes.headers.get('location');
   assert.ok(redirectUrl.includes('ok=cagnotte_merci'), 'Doit rediriger vers le faire-part avec le message de remerciement');
 
-  // Extraire la référence
   const ref = new URL(redirectUrl, BASE).searchParams.get('c');
-  const contrib = q.get('SELECT * FROM contributions WHERE reference = ?', ref);
+  const contrib = await store.getContributionByRef(ref);
   assert.ok(contrib, 'La contribution doit être insérée en statut pending');
   assert.strictEqual(contrib.amount, 15000);
   assert.strictEqual(contrib.provider, 'momo');
   assert.strictEqual(contrib.status, 'pending');
 
-  // 2. Affichage du message de confirmation et bouton WhatsApp sur le faire-part
   const viewSuccess = await request(`/i/demo?ok=cagnotte_merci&c=${ref}`);
   assert.strictEqual(viewSuccess.status, 200);
   assert.ok(viewSuccess.body.includes('Merci de tout'), 'Doit afficher la carte de remerciement pour le don');
   assert.ok(viewSuccess.body.includes('15 000 FCFA'), 'Doit mentionner le montant offert');
 
-  // 3. Les mariés valident la réception du don dans leur espace
   const loginRes = await request('/espace/demo/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `key=${w.access_key}`,
   });
-  const cookieHeader = loginRes.cookies.find(c => c.startsWith(`c${w.id}=`));
+  const cookieHeader = loginRes.cookies.find((c) => c.startsWith(`c${w.id}=`));
   const cookieVal = cookieHeader.split(';')[0];
 
   const confirmRes = await request(`/espace/demo/cagnotte/${contrib.id}/confirm`, {
     method: 'POST',
-    headers: { 'Cookie': cookieVal },
+    headers: { Cookie: cookieVal },
   });
   assert.strictEqual(confirmRes.status, 302);
 
-  // Vérifier passage à 'complete'
-  const updatedContrib = q.get('SELECT * FROM contributions WHERE id = ?', contrib.id);
+  const updatedContrib = await store.getContributionById(contrib.id);
   assert.strictEqual(updatedContrib.status, 'complete', 'La contribution doit être validée par les mariés');
 
-  // Nettoyage
-  q.run('DELETE FROM contributions WHERE id = ?', updatedContrib.id);
+  await store.deleteContribution(updatedContrib.id, w.id);
 });
 
 test('NIVEAU 2.4 — Espace Mariés : Protection d’accès & Check-in QR le jour J', async () => {
-  const w = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
+  const w = await store.getWeddingBySlug('demo');
 
-  // 1. Tentative sans clé secrète -> doit demander le code
   const noKey = await request('/espace/demo');
   assert.strictEqual(noKey.status, 200);
-  assert.ok(noKey.body.includes('Code d&#39;accès') || noKey.body.includes('Code d\'accès') || noKey.body.includes('Code'));
+  assert.ok(noKey.body.includes('Code d&#39;accès') || noKey.body.includes("Code d'accès") || noKey.body.includes('Code'));
 
-  // 2. Connexion avec mauvaise clé
   const badLogin = await request('/espace/demo/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -234,61 +191,62 @@ test('NIVEAU 2.4 — Espace Mariés : Protection d’accès & Check-in QR le jou
   assert.strictEqual(badLogin.status, 200);
   assert.ok(badLogin.body.includes('Code incorrect'));
 
-  // 3. Connexion légitime avec la bonne access_key
   const goodLogin = await request('/espace/demo/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `key=${w.access_key}`,
   });
   assert.strictEqual(goodLogin.status, 302);
-  const cookieHeader = goodLogin.cookies.find(c => c.startsWith(`c${w.id}=`));
+  const cookieHeader = goodLogin.cookies.find((c) => c.startsWith(`c${w.id}=`));
   assert.ok(cookieHeader, 'Doit déposer le cookie signé de session marié');
   const cookieVal = cookieHeader.split(';')[0];
 
-  // 4. Test émargement / scan QR code le jour J
-  // Créer un invité
   const token = 'test-token-checkin-99';
-  q.run("INSERT INTO guests (wedding_id, name, seats, attending_count, status, token) VALUES (?, 'Invité VIP', 2, 2, 'yes', ?)", w.id, token);
+  await store.insertGuest({
+    wedding_id: w.id,
+    name: 'Invité VIP',
+    seats: 2,
+    attending_count: 2,
+    status: 'yes',
+    token,
+  });
 
-  // Scanner le pass
   const checkinRes = await request(`/espace/demo/checkin/${token}`, {
     method: 'POST',
-    headers: { 'Cookie': cookieVal },
+    headers: { Cookie: cookieVal },
   });
   assert.strictEqual(checkinRes.status, 302);
 
-  const checkedGuest = q.get('SELECT * FROM guests WHERE token = ?', token);
-  assert.ok(checkedGuest.checked_in_at, 'L\'invité doit être horodaté comme entré');
+  const checkedGuest = await store.getGuestByToken(token, w.id);
+  assert.ok(checkedGuest.checked_in_at, "L'invité doit être horodaté comme entré");
 
-  // Scan doublon (déjà entré)
   const viewPassAgain = await request(`/espace/demo/checkin/${token}`, {
-    headers: { 'Cookie': cookieVal },
+    headers: { Cookie: cookieVal },
   });
   assert.strictEqual(viewPassAgain.status, 200);
-  assert.ok(viewPassAgain.body.includes('Pass déjà scanné') || viewPassAgain.body.includes('Déjà entré'), 'Doit alerter l\'accueil en cas de doublon/fraude');
+  assert.ok(viewPassAgain.body.includes('Pass déjà scanné') || viewPassAgain.body.includes('Déjà entré'), "Doit alerter l'accueil en cas de doublon/fraude");
 
-  // Nettoyage
-  q.run('DELETE FROM guests WHERE token = ?', token);
+  await store.deleteGuestByToken(token);
 });
 
 test("NIVEAU 2.5 — Modification des informations d'un invité (Nom, Téléphone, Places)", async () => {
-  const w = q.get("SELECT * FROM weddings WHERE slug = 'demo'");
+  const w = await store.getWeddingBySlug('demo');
 
   const loginRes = await request('/espace/demo/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `key=${w.access_key}`,
   });
-  const cookieHeader = loginRes.cookies.find(c => c.startsWith(`c${w.id}=`));
+  const cookieHeader = loginRes.cookies.find((c) => c.startsWith(`c${w.id}=`));
   const cookieVal = cookieHeader.split(';')[0];
 
-  const invited = addGuest(w.id, { name: 'Paul Biya', phone: '655000000', seats: 1, category: 'famille_mariee' });
+  const invited = await addGuest(w.id, { name: 'Paul Biya', phone: '655000000', seats: 1, category: 'famille_mariee' });
 
   const updateRes = await request(`/espace/demo/invites/${invited.id}/update`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Cookie': cookieVal,
+      Cookie: cookieVal,
     },
     body: new URLSearchParams({
       name: 'Président Paul',
@@ -299,35 +257,32 @@ test("NIVEAU 2.5 — Modification des informations d'un invité (Nom, Téléphon
   assert.strictEqual(updateRes.status, 302);
   assert.ok(updateRes.headers.get('location').includes('ok='), 'Doit rediriger avec message de succès');
 
-  const updated = q.get('SELECT * FROM guests WHERE id = ?', invited.id);
+  const updated = await store.getGuestById(invited.id);
   assert.strictEqual(updated.name, 'Président Paul');
   assert.strictEqual(updated.phone, '237657664546');
   assert.strictEqual(updated.seats, 3);
 
-  q.run('DELETE FROM guests WHERE id = ?', invited.id);
+  await store.deleteGuest(invited.id, w.id);
 });
 
 test('NIVEAU 2.6 — Conformité CNIL (Bandeau cookies) & Protection Anti-Spam (Honeypot + Rate Limiting)', async () => {
   const { resetRateLimits } = require('../src/security');
   resetRateLimits();
 
-  // 1. Vérifier la présence du bandeau CNIL (Accepter / Refuser équivalents + lien de réouverture)
   const home = await request('/');
   assert.strictEqual(home.status, 200);
   assert.ok(home.body.includes('Tout refuser') && home.body.includes('Tout accepter'), 'Doit afficher les boutons Accepter et Refuser');
   assert.ok(home.body.includes('Gérer mes cookies'), 'Doit inclure le lien pour modifier son choix plus tard');
 
-  // 2. Vérifier qu'aucun comptage de vue ne se déclenche sans consentement explicite
-  const beforeViews = q.get("SELECT views FROM weddings WHERE slug = 'demo'").views;
-  await request('/i/demo'); // Visite sans cookie ndolo_consent=accepted
-  const afterNoConsent = q.get("SELECT views FROM weddings WHERE slug = 'demo'").views;
+  const beforeViews = (await store.getWeddingBySlug('demo')).views;
+  await request('/i/demo');
+  const afterNoConsent = (await store.getWeddingBySlug('demo')).views;
   assert.strictEqual(afterNoConsent, beforeViews, 'Ne doit pas incrémenter le compteur avant accord cookies');
 
   await request('/i/demo', { headers: { Cookie: 'ndolo_consent=accepted' } });
-  const afterConsent = q.get("SELECT views FROM weddings WHERE slug = 'demo'").views;
+  const afterConsent = (await store.getWeddingBySlug('demo')).views;
   assert.strictEqual(afterConsent, beforeViews + 1, 'Doit incrémenter le compteur après accord explicite');
 
-  // 3. Test du champ piège invisible (Honeypot) : un robot qui remplit `website_url` doit être bloqué (400)
   const botRes = await request('/i/demo/cagnotte', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -339,10 +294,10 @@ test('NIVEAU 2.6 — Conformité CNIL (Bandeau cookies) & Protection Anti-Spam (
     }).toString(),
   });
   assert.strictEqual(botRes.status, 400, 'Doit rejeter immédiatement un robot qui remplit le champ piège');
-  const botContrib = q.get("SELECT * FROM contributions WHERE name = 'SpamBot 3000'");
-  assert.strictEqual(botContrib, undefined, 'Aucune donnée du robot ne doit être enregistrée en base');
 
-  // 4. Test de la limite d'envois (Rate Limiting)
+  const allContribs = await store.listContributionsByWedding((await store.getWeddingBySlug('demo')).id);
+  assert.strictEqual(allContribs.find((c) => c.name === 'SpamBot 3000'), undefined, 'Aucune donnée du robot ne doit être enregistrée en base');
+
   resetRateLimits();
   let lastStatus = 200;
   for (let i = 0; i < 16; i++) {
@@ -353,6 +308,6 @@ test('NIVEAU 2.6 — Conformité CNIL (Bandeau cookies) & Protection Anti-Spam (
     });
     lastStatus = r.status;
   }
-  assert.strictEqual(lastStatus, 429, 'Doit bloquer avec HTTP 429 au-delà de la limite d\'envois autorisée');
+  assert.strictEqual(lastStatus, 429, "Doit bloquer avec HTTP 429 au-delà de la limite d'envois autorisée");
   resetRateLimits();
 });

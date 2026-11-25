@@ -1,7 +1,19 @@
 const crypto = require('crypto');
+const { getPublicMediaUrl } = require('./supabase');
 
 const TZ = 'Africa/Douala';
-const BASE_URL = () => (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+const BASE_URL = () => {
+  if (process.env.BASE_URL) return process.env.BASE_URL.replace(/\/$/, '');
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`.replace(/\/$/, '');
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`.replace(/\/$/, '');
+  return 'http://localhost:3000';
+};
+
+function mediaUrl(filename, baseUrl = '') {
+  return getPublicMediaUrl(filename, baseUrl);
+}
+
+const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 const PLANS = {
   essentiel: {
@@ -238,7 +250,7 @@ function csvEscape(v) {
 }
 
 module.exports = {
-  TZ, BASE_URL, PLANS, THEMES, CUSTOM_PALETTES, GUEST_CATEGORIES, sanitizeHex, customThemeStyle,
+  TZ, BASE_URL, mediaUrl, asyncRoute, PLANS, THEMES, CUSTOM_PALETTES, GUEST_CATEGORIES, sanitizeHex, customThemeStyle,
   slugify, token, normalizePhone, prettyPhone, localPhone, waLink, parseLocal,
   fmtDate, fmtTime, fmtMoney, coupleNames, eventLabel, inviteUrl, inviteMessage, reminderMessage,
   parseProgram, mapsEmbed, mapsDirections, notify, csvEscape,

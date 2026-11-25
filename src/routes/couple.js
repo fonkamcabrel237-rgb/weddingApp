@@ -1,6 +1,6 @@
 // Espace des mariés : suivi RSVP, tables & places par intimité, envoi WhatsApp, cagnotte, contrôle des entrées.
 const express = require('express');
-const { q } = require('../db');
+const { store, nowStr } = require('../db');
 const U = require('../utils');
 const {
   importGuests, addGuest, stats,
@@ -10,15 +10,19 @@ const { hasCoupleAccess, cookieOpts } = require('../auth');
 const { createRateLimiter } = require('../security');
 
 const router = express.Router();
+const { asyncRoute } = U;
 const coupleLoginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'couple_login', message: 'Trop de tentatives de connexion. Merci de patienter 15 minutes.' });
 
 router.param('slug', (req, res, next, slug) => {
-  const w = q.get('SELECT * FROM weddings WHERE slug = ?', slug);
-  if (!w) return res.status(404).render('error', { title: 'Espace introuvable', message: 'Vérifie le lien reçu.' });
-  if (req.query.k && req.query.k === w.access_key) res.cookie(`c${w.id}`, w.access_key, cookieOpts(120));
-  req.w = w;
-  req.owner = hasCoupleAccess(req, w) || req.query.k === w.access_key;
-  next();
+  store.getWeddingBySlug(slug)
+    .then((w) => {
+      if (!w) return res.status(404).render('error', { title: 'Espace introuvable', message: 'Vérifie le lien reçu.' });
+      if (req.query.k && req.query.k === w.access_key) res.cookie(`c${w.id}`, w.access_key, cookieOpts(120));
+      req.w = w;
+      req.owner = hasCoupleAccess(req, w) || req.query.k === w.access_key;
+      next();
+    })
+    .catch(next);
 });
 
 const guard = (req, res, next) => (req.owner ? next() : res.render('couple/login', { w: req.w, error: null, next: req.originalUrl }));
@@ -32,77 +36,84 @@ router.post('/:slug/login', coupleLoginLimiter, (req, res) => {
   res.redirect(next.startsWith(`/espace/${req.w.slug}`) ? next : `/espace/${req.w.slug}`);
 });
 
-router.get('/:slug', guard, (req, res) => {
+router.get('/:slug', guard, asyncRoute(async (req, res) => {
   const w = req.w;
   const filter = ['yes', 'no', 'pending', 'unseated'].includes(req.query.f) ? req.query.f : null;
-  let where = 'WHERE wedding_id = ?';
-  const params = [w.id];
+  const [allGuests, tables, contributions, s] = await Promise.all([
+    store.listGuestsByWedding(w.id),
+    getTablesWithOccupancy(w.id),
+    store.listContributionsByWedding(w.id),
+    stats(w.id),
+  ]);
+
+  let guests = allGuests;
   if (filter === 'unseated') {
-    where += " AND status <> 'no' AND table_id IS NULL";
+    guests = guests.filter((g) => g.status !== 'no' && g.table_id == null);
   } else if (filter) {
-    where += ' AND status = ?';
-    params.push(filter);
+    guests = guests.filter((g) => g.status === filter);
   }
-  const guests = q.all(
-    `SELECT * FROM guests ${where} ORDER BY CASE status WHEN 'yes' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, name`,
-    ...params
-  );
-  const tables = getTablesWithOccupancy(w.id);
-  const contributions = q.all("SELECT * FROM contributions WHERE wedding_id = ? ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, paid_at DESC, id DESC", w.id);
+  const rank = { yes: 0, pending: 1, no: 2 };
+  guests = [...guests].sort((a, b) => {
+    const rA = rank[a.status] ?? 2;
+    const rB = rank[b.status] ?? 2;
+    if (rA !== rB) return rA - rB;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
+  });
+
   const daysLeft = w.event_date ? Math.ceil((U.parseLocal(w.event_date) - new Date()) / 86400000) : null;
-  res.render('couple/dashboard', { w, guests, tables, contributions, s: stats(w.id), filter, daysLeft, query: req.query });
-});
+  res.render('couple/dashboard', { w, guests, tables, contributions, s, filter, daysLeft, query: req.query });
+}));
 
 // Quota maximum d'invités & mode liste fermée
-router.post('/:slug/settings', guard, (req, res) => {
+router.post('/:slug/settings', guard, asyncRoute(async (req, res) => {
   const maxGuests = Math.max(10, Math.min(5000, parseInt(req.body.max_guests, 10) || 200));
   const strictRsvp = req.body.strict_rsvp === '0' ? 0 : 1;
-  q.run('UPDATE weddings SET max_guests = ?, strict_rsvp = ? WHERE id = ?', maxGuests, strictRsvp, req.w.id);
+  await store.updateWedding(req.w.id, { max_guests: maxGuests, strict_rsvp: strictRsvp });
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent(` Capacité fixée à ${maxGuests} places max`)}#tables`);
-});
+}));
 
 // Création de table(s) personnalisée(s) par les mariés
-router.post('/:slug/tables', guard, (req, res) => {
+router.post('/:slug/tables', guard, asyncRoute(async (req, res) => {
   const w = req.w;
   let created = 0;
   if (req.body.name) {
-    if (addTable(w.id, { name: req.body.name, capacity: req.body.capacity, category: req.body.category })) created++;
+    if (await addTable(w.id, { name: req.body.name, capacity: req.body.capacity, category: req.body.category })) created++;
   }
   if (req.body.bulk_tables) {
     for (const line of String(req.body.bulk_tables).split(/\r?\n/)) {
       const parts = line.split(/[;,]/).map((s) => s.trim());
       if (!parts[0]) continue;
-      if (addTable(w.id, { name: parts[0], capacity: parts[1] || req.body.default_capacity || 10, category: parts[2] || req.body.default_category || 'famille_mariee' })) {
+      if (await addTable(w.id, { name: parts[0], capacity: parts[1] || req.body.default_capacity || 10, category: parts[2] || req.body.default_category || 'famille_mariee' })) {
         created++;
       }
     }
   }
   res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(`${created} table(s) créée(s)`)}#tables`);
-});
+}));
 
-router.post('/:slug/tables/auto-assign', guard, (req, res) => {
-  const { placed, unplaced } = autoAssignTables(req.w.id);
+router.post('/:slug/tables/auto-assign', guard, asyncRoute(async (req, res) => {
+  const { placed, unplaced } = await autoAssignTables(req.w.id);
   const msg = unplaced > 0
     ? `${placed} invité(s) placé(s) automatiquement (${unplaced} sans place : créez une table supplémentaire).`
     : `${placed} invité(s) placé(s) automatiquement selon leur intimité !`;
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent(msg)}#tables`);
-});
+}));
 
-router.post('/:slug/tables/:tableId/delete', guard, (req, res) => {
-  deleteTable(req.w.id, Number(req.params.tableId));
+router.post('/:slug/tables/:tableId/delete', guard, asyncRoute(async (req, res) => {
+  await deleteTable(req.w.id, Number(req.params.tableId));
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Table supprimée')}#tables`);
-});
+}));
 
 // Ajout / import d'invités avec contrôle du quota max et placement à table
-router.post('/:slug/invites', guard, (req, res) => {
+router.post('/:slug/invites', guard, asyncRoute(async (req, res) => {
   const w = req.w;
-  const currentStats = stats(w.id);
+  const currentStats = await stats(w.id);
 
   if (req.body.bulk) {
     if (currentStats.guests.remainingQuota <= 0) {
       return res.redirect(`/espace/${w.slug}?err=${encodeURIComponent(`Quota maximum de ${w.max_guests} places atteint ! Augmentez votre quota dans l'onglet Tables.`)}#ajouter`);
     }
-    const n = importGuests(w.id, req.body.bulk, req.body.default_category || 'famille_mariee');
+    const n = await importGuests(w.id, req.body.bulk, req.body.default_category || 'famille_mariee');
     return res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(n + ' invité(s) importé(s)')}#invites`);
   }
 
@@ -113,44 +124,44 @@ router.post('/:slug/invites', guard, (req, res) => {
         `/espace/${w.slug}?err=${encodeURIComponent(`Impossible d'ajouter ${reqSeats} place(s) : il ne reste que ${currentStats.guests.remainingQuota} place(s) sur votre quota max de ${w.max_guests}.`)}#ajouter`
       );
     }
-    const g = addGuest(w.id, {
+    const g = await addGuest(w.id, {
       name: req.body.name,
       phone: req.body.phone,
       seats: reqSeats,
       category: req.body.category,
       table_id: req.body.table_id || 'auto',
     });
-    const suffix = g.table_name ? ` → ${g.table_name} (Siège ${g.seat_numbers})` : ' (en attente d\'une table)';
+    const suffix = g.table_name ? ` → ${g.table_name} (Siège ${g.seat_numbers})` : " (en attente d'une table)";
     return res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(`Invité ajouté${suffix}`)}#invites`);
   }
 
   res.redirect(`/espace/${w.slug}#invites`);
-});
+}));
 
 // Attribution / changement de table ou d'intimité d'un invité
-router.post('/:slug/invites/:id/assign', guard, (req, res) => {
+router.post('/:slug/invites/:id/assign', guard, asyncRoute(async (req, res) => {
   const w = req.w;
-  const guest = q.get('SELECT * FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, w.id);
+  const guest = await store.getGuestById(req.params.id, w.id);
   if (!guest) return res.redirect(`/espace/${w.slug}#invites`);
 
   if (req.body.category && U.GUEST_CATEGORIES[req.body.category]) {
-    q.run('UPDATE guests SET category = ? WHERE id = ?', req.body.category, guest.id);
+    await store.updateGuest(guest.id, { category: req.body.category });
   }
-  const result = assignGuestToTable(w.id, guest.id, req.body.table_id);
+  const result = await assignGuestToTable(w.id, guest.id, req.body.table_id);
   if (!result.ok) {
     return res.redirect(`/espace/${w.slug}?err=${encodeURIComponent(result.error)}#invites`);
   }
-  const updated = q.get('SELECT * FROM guests WHERE id = ?', guest.id);
+  const updated = await store.getGuestById(guest.id);
   const msg = updated.table_name
     ? `${updated.name} placé(e) sur ${updated.table_name} (Siège ${updated.seat_numbers})`
     : `${updated.name} retiré(e) de sa table`;
   res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(msg)}#invites`);
-});
+}));
 
 // Modification des informations d'un invité (Nom, Téléphone, Places)
-router.post('/:slug/invites/:id/update', guard, (req, res) => {
+router.post('/:slug/invites/:id/update', guard, asyncRoute(async (req, res) => {
   const w = req.w;
-  const guest = q.get('SELECT * FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, w.id);
+  const guest = await store.getGuestById(req.params.id, w.id);
   if (!guest) return res.redirect(`/espace/${w.slug}#invites`);
 
   const name = String(req.body.name || '').trim().slice(0, 120);
@@ -160,7 +171,7 @@ router.post('/:slug/invites/:id/update', guard, (req, res) => {
 
   const phone = U.normalizePhone(req.body.phone) || null;
   const newSeats = Math.max(1, Math.min(20, parseInt(req.body.seats, 10) || 1));
-  const currentStats = stats(w.id);
+  const currentStats = await stats(w.id);
 
   const oldActiveSeats = guest.status === 'no' ? 0 : (guest.status === 'yes' && guest.attending_count ? guest.attending_count : guest.seats);
   const newActiveSeats = guest.status === 'no' ? 0 : (guest.status === 'yes' && guest.attending_count ? guest.attending_count : newSeats);
@@ -172,44 +183,55 @@ router.post('/:slug/invites/:id/update', guard, (req, res) => {
     );
   }
 
-  q.run(
-    'UPDATE guests SET name = ?, phone = ?, seats = ? WHERE id = ? AND wedding_id = ?',
-    name, phone, newSeats, guest.id, w.id
-  );
+  await store.updateGuest(guest.id, { name, phone, seats: newSeats });
 
   if (guest.table_id) {
-    recomputeTableSeats(guest.table_id);
+    await recomputeTableSeats(guest.table_id);
   }
 
   res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(`Invité « ${name} » modifié avec succès`)}#invites`);
-});
+}));
 
-router.post('/:slug/invites/:id/delete', guard, (req, res) => {
-  const guest = q.get('SELECT * FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
-  q.run('DELETE FROM guests WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
-  if (guest && guest.table_id) recomputeTableSeats(guest.table_id);
+router.post('/:slug/invites/:id/delete', guard, asyncRoute(async (req, res) => {
+  const guest = await store.getGuestById(req.params.id, req.w.id);
+  await store.deleteGuest(req.params.id, req.w.id);
+  if (guest && guest.table_id) await recomputeTableSeats(guest.table_id);
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Invité supprimé')}#invites`);
-});
+}));
 
 // Validation / Suppression d'un don de la cagnotte
-router.post('/:slug/cagnotte/:id/confirm', guard, (req, res) => {
-  q.run("UPDATE contributions SET status = 'complete', paid_at = datetime('now') WHERE id = ? AND wedding_id = ?", req.params.id, req.w.id);
+router.post('/:slug/cagnotte/:id/confirm', guard, asyncRoute(async (req, res) => {
+  const contrib = await store.getContributionById(req.params.id);
+  if (contrib && contrib.wedding_id === req.w.id) {
+    await store.updateContribution(contrib.id, { status: 'complete', paid_at: nowStr() });
+  }
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Don validé et ajouté à la cagnotte')}#cagnotte`);
-});
+}));
 
-router.post('/:slug/cagnotte/:id/delete', guard, (req, res) => {
-  q.run('DELETE FROM contributions WHERE id = ? AND wedding_id = ?', req.params.id, req.w.id);
+router.post('/:slug/cagnotte/:id/delete', guard, asyncRoute(async (req, res) => {
+  await store.deleteContribution(req.params.id, req.w.id);
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Contribution supprimée')}#cagnotte`);
-});
+}));
 
 // Appelé en arrière-plan quand on clique sur "Envoyer WhatsApp"
-router.post('/:slug/invites/:id/sent', guard, (req, res) => {
-  q.run("UPDATE guests SET invited_at = datetime('now') WHERE id = ? AND wedding_id = ?", req.params.id, req.w.id);
+router.post('/:slug/invites/:id/sent', guard, asyncRoute(async (req, res) => {
+  const guest = await store.getGuestById(req.params.id, req.w.id);
+  if (guest) await store.updateGuest(guest.id, { invited_at: nowStr() });
   res.json({ ok: true });
-});
+}));
 
-router.get('/:slug/export.csv', guard, (req, res) => {
-  const rows = q.all('SELECT * FROM guests WHERE wedding_id = ? ORDER BY table_name IS NULL, table_name, seat_numbers, name', req.w.id);
+router.get('/:slug/export.csv', guard, asyncRoute(async (req, res) => {
+  const allRows = await store.listGuestsByWedding(req.w.id);
+  const rows = [...allRows].sort((a, b) => {
+    const nA = a.table_name ? 0 : 1;
+    const nB = b.table_name ? 0 : 1;
+    if (nA !== nB) return nA - nB;
+    const tCmp = String(a.table_name || '').localeCompare(String(b.table_name || ''), 'fr');
+    if (tCmp !== 0) return tCmp;
+    const sCmp = String(a.seat_numbers || '').localeCompare(String(b.seat_numbers || ''), 'fr');
+    if (sCmp !== 0) return sCmp;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
+  });
   const label = { yes: 'Présent', no: 'Absent', pending: 'Sans réponse' };
   const lines = [['Nom', 'Téléphone', 'Intimité', 'Table', 'Sièges', 'Places prévues', 'Réponse', 'Nombre confirmé', 'Message', 'Date réponse', 'Arrivé à'].join(';')];
   for (const g of rows) {
@@ -220,30 +242,55 @@ router.get('/:slug/export.csv', guard, (req, res) => {
     ].map(U.csvEscape).join(';'));
   }
   res.type('text/csv').attachment(`invites-${req.w.slug}.csv`).send('\ufeff' + lines.join('\r\n'));
-});
+}));
 
 // ---------- Contrôle des entrées le jour J ----------
-router.get('/:slug/accueil', guard, (req, res) => {
+router.get('/:slug/accueil', guard, asyncRoute(async (req, res) => {
   const search = String(req.query.s || '').trim();
-  const guests = search
-    ? q.all(
-        "SELECT * FROM guests WHERE wedding_id = ? AND status='yes' AND (name LIKE ? OR table_name LIKE ? OR token LIKE ?) ORDER BY name LIMIT 80",
-        req.w.id, `%${search}%`, `%${search}%`, `%${search}%`
+  const [allGuests, tables, s] = await Promise.all([
+    store.listGuestsByWedding(req.w.id),
+    getTablesWithOccupancy(req.w.id),
+    stats(req.w.id),
+  ]);
+  const confirmed = allGuests.filter((g) => g.status === 'yes');
+  let guests;
+  if (search) {
+    const q = search.toLowerCase();
+    guests = confirmed
+      .filter((g) =>
+        String(g.name || '').toLowerCase().includes(q) ||
+        String(g.table_name || '').toLowerCase().includes(q) ||
+        String(g.token || '').toLowerCase().includes(q)
       )
-    : q.all("SELECT * FROM guests WHERE wedding_id = ? AND status='yes' ORDER BY checked_in_at IS NOT NULL, table_name IS NULL, table_name, name LIMIT 300", req.w.id);
-  const tables = getTablesWithOccupancy(req.w.id);
-  res.render('couple/accueil', { w: req.w, guests, tables, search, s: stats(req.w.id) });
-});
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fr'))
+      .slice(0, 80);
+  } else {
+    guests = confirmed
+      .sort((a, b) => {
+        const cA = a.checked_in_at ? 1 : 0;
+        const cB = b.checked_in_at ? 1 : 0;
+        if (cA !== cB) return cA - cB;
+        const tA = a.table_name ? 0 : 1;
+        const tB = b.table_name ? 0 : 1;
+        if (tA !== tB) return tA - tB;
+        const tCmp = String(a.table_name || '').localeCompare(String(b.table_name || ''), 'fr');
+        if (tCmp !== 0) return tCmp;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
+      })
+      .slice(0, 300);
+  }
+  res.render('couple/accueil', { w: req.w, guests, tables, search, s });
+}));
 
-router.get('/:slug/checkin/:token', guard, (req, res) => {
-  const guest = q.get('SELECT * FROM guests WHERE token = ? AND wedding_id = ?', req.params.token, req.w.id);
+router.get('/:slug/checkin/:token', guard, asyncRoute(async (req, res) => {
+  const guest = await store.getGuestByToken(req.params.token, req.w.id);
   res.render('couple/checkin', { w: req.w, guest, done: req.query.done === '1' });
-});
+}));
 
-router.post('/:slug/checkin/:token', guard, (req, res) => {
-  q.run("UPDATE guests SET checked_in_at = datetime('now') WHERE token = ? AND wedding_id = ? AND checked_in_at IS NULL", req.params.token, req.w.id);
+router.post('/:slug/checkin/:token', guard, asyncRoute(async (req, res) => {
+  await store.checkinGuest(req.params.token, req.w.id);
   if (req.body.back === 'accueil') return res.redirect(`/espace/${req.w.slug}/accueil?ok=${encodeURIComponent('Entrée validée ✓')}`);
   res.redirect(`/espace/${req.w.slug}/checkin/${req.params.token}?done=1`);
-});
+}));
 
 module.exports = router;
