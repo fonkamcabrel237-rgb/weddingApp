@@ -4,7 +4,10 @@ const { createClient } = require('@supabase/supabase-js');
 const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'uploads';
 
 function getSupabaseUrl() {
-  return String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/\/$/, '');
+  return String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '')
+    .trim()
+    .replace(/\/rest\/v1\/?$/i, '')
+    .replace(/\/$/, '');
 }
 
 function getSupabaseKey() {
