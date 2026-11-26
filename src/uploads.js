@@ -45,13 +45,14 @@ async function persistBuffer(name, buffer, contentType) {
 async function saveImage(file) {
   if (sharp) {
     try {
-      const name = `${Date.now()}-${token(6)}.webp`;
+      const name = `${Date.now()}-${token(6)}.jpg`;
       const outBuf = await sharp(file.buffer)
         .rotate()
-        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-        .webp({ quality: 78 })
+        .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+        .flatten({ background: '#ffffff' })
+        .jpeg({ quality: 82, progressive: true, mozjpeg: true })
         .toBuffer();
-      await persistBuffer(name, outBuf, 'image/webp');
+      await persistBuffer(name, outBuf, 'image/jpeg');
       return name;
     } catch (e) {
       console.warn('[uploads] Fallback sans sharp :', e.message);

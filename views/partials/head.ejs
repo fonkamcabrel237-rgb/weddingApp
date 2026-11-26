@@ -6,11 +6,12 @@
   <%
     const pageTitle = typeof title !== 'undefined' && title ? `${title} · ${brand}` : `${brand} — Faire-part digitaux d'exception`;
     const pageDesc = typeof metaDesc !== 'undefined' && metaDesc ? metaDesc : "Faire-part digitaux interactifs, RSVP WhatsApp en ligne, pass VIP avec table et cagnotte Mobile Money & Orange Money sans intermédiaire.";
-    const pageImg = typeof ogImage !== 'undefined' && ogImage ? ogImage : `${baseUrl}/static/img/og-cover.jpg`;
+    const pageImg = typeof ogImage !== 'undefined' && ogImage ? ogImage : `${baseUrl}/img/og-cover.jpg?v=3`;
     const pageUrl = `${baseUrl}${typeof path !== 'undefined' ? path : ''}`;
   %>
   <title><%= pageTitle %></title>
   <meta name="description" content="<%= pageDesc %>">
+  <link rel="canonical" href="<%= pageUrl %>">
   <% if (typeof noindex !== 'undefined' && noindex) { %><meta name="robots" content="noindex"><% } %>
 
   <!-- Open Graph / WhatsApp / Facebook -->
@@ -19,7 +20,7 @@
   <meta property="og:title" content="<%= pageTitle %>">
   <meta property="og:description" content="<%= pageDesc %>">
   <meta property="og:url" content="<%= pageUrl %>">
-  <meta property="og:image" content="<%= pageImg %>">
+  <meta property="og:image" itemprop="image" content="<%= pageImg %>">
   <meta property="og:image:secure_url" content="<%= pageImg %>">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">

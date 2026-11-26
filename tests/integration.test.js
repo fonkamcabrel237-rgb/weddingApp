@@ -53,9 +53,17 @@ test('NIVEAU 2.1 — Consultation publique, Healthcheck et cas d’erreur 404', 
   assert.strictEqual(privacy.status, 200);
   assert.ok(privacy.body.includes('Politique de confidentialité'), 'Doit afficher la politique de confidentialité');
 
-  const demo = await request('/i/demo');
+  const demo = await request('/i/demo', {
+    headers: { 'X-Forwarded-Proto': 'https', 'X-Forwarded-Host': 'www.ndolos.site' },
+  });
   assert.strictEqual(demo.status, 200);
   assert.ok(demo.body.includes('Grâce'), 'Doit afficher le faire-part démo');
+  assert.ok(demo.body.includes('content="https://www.ndolos.site/i/demo"'), 'og:url doit correspondre exactement au domaine www appelé sans boucle de redirection');
+  assert.ok(demo.body.includes('content="https://www.ndolos.site/img/og-cover.jpg?v=3"'), 'og:image doit pointer vers le JPEG CDN direct sans redirection');
+
+  const ogImg = await fetch(`${BASE}/img/og-cover.jpg?v=3`);
+  assert.strictEqual(ogImg.status, 200);
+  assert.ok((ogImg.headers.get('content-type') || '').includes('image/jpeg'), 'og-cover.jpg doit être servi en image/jpeg');
 
   const notFound = await request('/i/mariage-inconnu-inexistant-404');
   assert.strictEqual(notFound.status, 404);

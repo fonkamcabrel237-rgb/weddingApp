@@ -28,7 +28,9 @@ app.use(cookieParser(process.env.SESSION_SECRET || 'dev-secret'));
 
 app.use('/static', express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
-  etag: false,
+}));
+app.use('/img', express.static(path.join(__dirname, 'public', 'img'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
 }));
 
 // Médias : en mode Supabase, redirection transparente vers le CDN public Supabase Storage
@@ -52,11 +54,15 @@ app.get('/healthz', (req, res) => {
 
 // Variables disponibles dans toutes les vues EJS
 app.use((req, res, next) => {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.get('host') || '').split(',')[0].trim();
+  const reqBaseUrl = host ? `${proto}://${host}` : utils.BASE_URL();
+
   Object.assign(res.locals, utils, {
     brand: process.env.BRAND_NAME || 'Ndolo Invitations',
     businessWhatsapp: process.env.BUSINESS_WHATSAPP || '',
     businessEmail: process.env.BUSINESS_EMAIL || 'contact@ndolos.site',
-    baseUrl: utils.BASE_URL(),
+    baseUrl: reqBaseUrl,
     paymentMode: payments.mode(),
     path: req.path,
     flash: req.query.ok || null,

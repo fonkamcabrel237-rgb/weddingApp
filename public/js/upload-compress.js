@@ -13,7 +13,7 @@
       var objUrl = URL.createObjectURL(file);
       img.onload = function () {
         URL.revokeObjectURL(objUrl);
-        var maxDim = 1600;
+        var maxDim = 1280;
         var w = img.naturalWidth || img.width;
         var h = img.naturalHeight || img.height;
         if (w > maxDim || h > maxDim) {
@@ -29,19 +29,21 @@
         canvas.width = w;
         canvas.height = h;
         var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         canvas.toBlob(
           function (blob) {
             if (!blob || blob.size >= file.size) return resolve(file);
             var baseName = (file.name || 'photo').replace(/\.[^.]+$/, '');
-            var compressed = new File([blob], baseName + '.webp', {
-              type: 'image/webp',
+            var compressed = new File([blob], baseName + '.jpg', {
+              type: 'image/jpeg',
               lastModified: Date.now(),
             });
             resolve(compressed);
           },
-          'image/webp',
-          0.78
+          'image/jpeg',
+          0.82
         );
       };
       img.onerror = function () {

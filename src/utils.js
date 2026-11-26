@@ -181,8 +181,9 @@ function eventLabel(w) {
   return { dot: 'notre dot', mariage_dot: 'notre dot et notre mariage', mariage: 'notre mariage' }[w.event_type] || 'notre mariage';
 }
 
-function inviteUrl(w, guest) {
-  return `${BASE_URL()}/i/${w.slug}${guest ? '?g=' + guest.token : ''}`;
+function inviteUrl(w, guest, customBaseUrl) {
+  const base = (customBaseUrl || BASE_URL()).replace(/\/$/, '');
+  return `${base}/i/${w.slug}${guest ? '?g=' + guest.token : ''}`;
 }
 
 function inviteMessage(w, guest) {
