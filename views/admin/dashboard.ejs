@@ -16,14 +16,14 @@
       <span class="kpi-sub"><%= (kpi.total || 0) - (kpi.published || 0) %> brouillon(s)</span>
     </div>
     <div class="kpi-card">
-      <span class="kpi-label"><i class="fa-solid fa-gift"></i> Cagnottes reçues</span>
+      <span class="kpi-label"><i class="fa-solid fa-gift"></i> Cagnottes couples</span>
       <b class="kpi-num"><%= fmtMoney(kpi.cagnotte) %></b>
-      <span class="kpi-sub">Frais : <%= fmtMoney(kpi.cagFees) %></span>
+      <span class="kpi-sub">Direct MoMo / OM (0 % frais)</span>
     </div>
     <div class="kpi-card">
       <span class="kpi-label"><i class="fa-solid fa-handshake"></i> Com. Partenaires</span>
       <b class="kpi-num"><%= fmtMoney(kpi.commissions) %></b>
-      <span class="kpi-sub">À reverser couples : <%= fmtMoney(kpi.toPay) %></span>
+      <span class="kpi-sub"><%= partners.length %> partenaire(s) actif(s)</span>
     </div>
   </div>
 

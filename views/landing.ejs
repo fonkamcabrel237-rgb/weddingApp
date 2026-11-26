@@ -77,18 +77,13 @@
       <h2>2 formules simples, sans frais cachés</h2>
       <p class="muted">Paiement unique par MTN MoMo ou Orange Money après validation de votre aperçu. En ligne pendant 6 mois.</p>
     </div>
-    <div class="grid g2" style="max-width:880px;margin:0 auto;align-items:stretch">
+    <div class="grid g2 plans-grid" style="max-width:880px;margin:0 auto;align-items:stretch">
       <% Object.entries(PLANS).forEach(function([key, p]) { %>
         <div class="card plan <%= key === 'prestige' ? 'featured' : '' %>" style="display:flex;flex-direction:column">
-          <% if (key === 'prestige') { %><span class="ribbon"><i class="fa-solid fa-crown"></i> LA PLUS CHOISIE · ZÉRO INCRUSTE</span><% } %>
+          <% if (key === 'prestige') { %><span class="ribbon"><i class="fa-solid fa-crown"></i> LA PLUS POPULAIRE</span><% } %>
           <h3><%= p.name %></h3>
           <div class="price"><%= fmtMoney(p.price) %></div>
           <% if (p.tagline) { %><p class="muted small" style="margin:-.2rem 0 .8rem"><%= p.tagline %></p><% } %>
-          <% if (key === 'prestige') { %>
-            <div style="background:rgba(184,145,63,.12);border:1px solid rgba(184,145,63,.35);border-radius:10px;padding:.5rem .75rem;margin-bottom:.85rem;font-size:.82rem;color:#6b4e16">
-              <strong>💡 Astuce mariés :</strong> bloquer seulement 2 ou 3 invités non prévus rembourse déjà les 15 000 FCFA d'écart sur votre facture traiteur !
-            </div>
-          <% } %>
           <ul style="flex:1"><% p.features.forEach(function(f) { %><li><i class="fa-solid fa-check"></i> <%= f %></li><% }) %></ul>
           <a class="btn <%= key === 'prestige' ? 'btn-gold' : 'btn-outline' %>" href="#commander" data-plan="<%= key %>"><i class="fa-solid fa-check"></i> Choisir <%= p.name %></a>
         </div>

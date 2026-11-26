@@ -43,9 +43,9 @@
 
     <div class="card action-subcard">
       <div class="cagnotte-pill">
-        <span class="meta-label">Cagnotte collectée</span>
+        <span class="meta-label">Cagnotte déclarée aux mariés</span>
         <strong><%= fmtMoney(s.cagnotte.total) %></strong>
-        <span class="small muted">Net à reverser : <%= fmtMoney(s.cagnotte.net) %> (frais <%= fmtMoney(s.cagnotte.fee) %>)</span>
+        <span class="small muted">Direct sur MoMo / OM des mariés (0 % frais)</span>
       </div>
       <form class="action-btn-row" method="post" action="/admin/mariages/<%= w.id %>/action">
         <button class="btn btn-sm <%= w.paid ? 'btn-outline' : 'btn-gold' %>" name="action" value="paid"><i class="fa-solid fa-money-bill-wave"></i> <%= w.paid ? 'Marquer impayé' : 'Marquer payé' %></button>
@@ -54,7 +54,6 @@
         <% } else { %>
           <button class="btn btn-outline btn-sm" name="action" value="draft"><i class="fa-solid fa-eye-slash"></i> Dépublier</button>
         <% } %>
-        <button class="btn btn-outline btn-sm" name="action" value="payout"><i class="fa-solid fa-hand-holding-dollar"></i> <%= w.payout_done ? 'Non reversé' : 'Reversé' %></button>
         <button class="btn btn-outline btn-sm" name="action" value="archive"><i class="fa-solid fa-box-archive"></i> Archiver</button>
         <button class="btn btn-danger btn-sm" name="action" value="delete" onclick="return confirm('Supprimer définitivement ce faire-part et toutes ses données ?')"><i class="fa-solid fa-trash-can"></i></button>
       </form>
