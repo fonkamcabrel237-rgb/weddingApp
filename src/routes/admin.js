@@ -237,8 +237,10 @@ function cleanProgram(program) {
 }
 
 async function applyUpdate(id, b) {
-  const plan = U.PLANS[b.plan] ? b.plan : 'prestige';
+  const plan = U.normalizePlan(b.plan);
+  const prestige = U.isPrestige(plan);
   const nextSlug = await uniqueSlugFor(id, b.slug);
+  const wantedTheme = U.THEMES[b.theme] ? b.theme : 'royal';
   const patch = {
     plan,
     price: parseInt(b.price, 10) || U.PLANS[plan].price,
@@ -257,7 +259,7 @@ async function applyUpdate(id, b) {
     maps_query: b.maps_query || [b.venue_name, b.venue_address, b.city].filter(Boolean).join(', ') || null,
     program: JSON.stringify(cleanProgram(b.program)),
     dress_code: b.dress_code || null,
-    theme: U.THEMES[b.theme] ? b.theme : 'royal',
+    theme: !prestige && wantedTheme === 'custom' ? 'royal' : wantedTheme,
     custom_bg: U.sanitizeHex(b.custom_bg, '#faf6f0'),
     custom_accent: U.sanitizeHex(b.custom_accent, '#b8913f'),
     music_url: b.music_url || null,
@@ -272,6 +274,7 @@ async function applyUpdate(id, b) {
     om_number: U.normalizePhone(b.om_number) || null,
     om_name: b.om_name || null,
   };
+  if (!prestige) patch.strict_rsvp = 0;
   if (nextSlug) patch.slug = nextSlug;
   await store.updateWedding(id, patch);
 }

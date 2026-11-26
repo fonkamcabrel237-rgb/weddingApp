@@ -27,6 +27,15 @@ router.param('slug', (req, res, next, slug) => {
 
 const guard = (req, res, next) => (req.owner ? next() : res.render('couple/login', { w: req.w, error: null, next: req.originalUrl }));
 
+const requirePrestige = (req, res, next) => {
+  if (U.isPrestige(req.w)) return next();
+  const msg = 'Fonctionnalité réservée à l’offre Prestige VIP (+15 000 FCFA). Débloquez-la en 1 clic sur WhatsApp !';
+  if (req.xhr || (req.headers.accept || '').includes('application/json') || req.path.endsWith('/sent')) {
+    return res.status(403).json({ ok: false, error: msg });
+  }
+  return res.redirect(`/espace/${req.w.slug}?err=${encodeURIComponent(msg)}#prestige-upsell`);
+};
+
 router.post('/:slug/login', coupleLoginLimiter, (req, res) => {
   if (String(req.body.key || '').trim() !== req.w.access_key) {
     return res.render('couple/login', { w: req.w, error: 'Code incorrect.', next: req.body.next });
@@ -65,7 +74,7 @@ router.get('/:slug', guard, asyncRoute(async (req, res) => {
 }));
 
 // Quota maximum d'invités & mode liste fermée
-router.post('/:slug/settings', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/settings', guard, requirePrestige, asyncRoute(async (req, res) => {
   const maxGuests = Math.max(10, Math.min(5000, parseInt(req.body.max_guests, 10) || 200));
   const strictRsvp = req.body.strict_rsvp === '0' ? 0 : 1;
   await store.updateWedding(req.w.id, { max_guests: maxGuests, strict_rsvp: strictRsvp });
@@ -73,7 +82,7 @@ router.post('/:slug/settings', guard, asyncRoute(async (req, res) => {
 }));
 
 // Création de table(s) personnalisée(s) par les mariés
-router.post('/:slug/tables', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/tables', guard, requirePrestige, asyncRoute(async (req, res) => {
   const w = req.w;
   let created = 0;
   if (req.body.name) {
@@ -91,7 +100,7 @@ router.post('/:slug/tables', guard, asyncRoute(async (req, res) => {
   res.redirect(`/espace/${w.slug}?ok=${encodeURIComponent(`${created} table(s) créée(s)`)}#tables`);
 }));
 
-router.post('/:slug/tables/auto-assign', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/tables/auto-assign', guard, requirePrestige, asyncRoute(async (req, res) => {
   const { placed, unplaced } = await autoAssignTables(req.w.id);
   const msg = unplaced > 0
     ? `${placed} invité(s) placé(s) automatiquement (${unplaced} sans place : créez une table supplémentaire).`
@@ -99,13 +108,13 @@ router.post('/:slug/tables/auto-assign', guard, asyncRoute(async (req, res) => {
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent(msg)}#tables`);
 }));
 
-router.post('/:slug/tables/:tableId/delete', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/tables/:tableId/delete', guard, requirePrestige, asyncRoute(async (req, res) => {
   await deleteTable(req.w.id, Number(req.params.tableId));
   res.redirect(`/espace/${req.w.slug}?ok=${encodeURIComponent('Table supprimée')}#tables`);
 }));
 
 // Ajout / import d'invités avec contrôle du quota max et placement à table
-router.post('/:slug/invites', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/invites', guard, requirePrestige, asyncRoute(async (req, res) => {
   const w = req.w;
   const currentStats = await stats(w.id);
 
@@ -139,7 +148,7 @@ router.post('/:slug/invites', guard, asyncRoute(async (req, res) => {
 }));
 
 // Attribution / changement de table ou d'intimité d'un invité
-router.post('/:slug/invites/:id/assign', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/invites/:id/assign', guard, requirePrestige, asyncRoute(async (req, res) => {
   const w = req.w;
   const guest = await store.getGuestById(req.params.id, w.id);
   if (!guest) return res.redirect(`/espace/${w.slug}#invites`);
@@ -159,7 +168,7 @@ router.post('/:slug/invites/:id/assign', guard, asyncRoute(async (req, res) => {
 }));
 
 // Modification des informations d'un invité (Nom, Téléphone, Places)
-router.post('/:slug/invites/:id/update', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/invites/:id/update', guard, requirePrestige, asyncRoute(async (req, res) => {
   const w = req.w;
   const guest = await store.getGuestById(req.params.id, w.id);
   if (!guest) return res.redirect(`/espace/${w.slug}#invites`);
@@ -214,13 +223,13 @@ router.post('/:slug/cagnotte/:id/delete', guard, asyncRoute(async (req, res) => 
 }));
 
 // Appelé en arrière-plan quand on clique sur "Envoyer WhatsApp"
-router.post('/:slug/invites/:id/sent', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/invites/:id/sent', guard, requirePrestige, asyncRoute(async (req, res) => {
   const guest = await store.getGuestById(req.params.id, req.w.id);
   if (guest) await store.updateGuest(guest.id, { invited_at: nowStr() });
   res.json({ ok: true });
 }));
 
-router.get('/:slug/export.csv', guard, asyncRoute(async (req, res) => {
+router.get('/:slug/export.csv', guard, requirePrestige, asyncRoute(async (req, res) => {
   const allRows = await store.listGuestsByWedding(req.w.id);
   const rows = [...allRows].sort((a, b) => {
     const nA = a.table_name ? 0 : 1;
@@ -245,7 +254,7 @@ router.get('/:slug/export.csv', guard, asyncRoute(async (req, res) => {
 }));
 
 // ---------- Contrôle des entrées le jour J ----------
-router.get('/:slug/accueil', guard, asyncRoute(async (req, res) => {
+router.get('/:slug/accueil', guard, requirePrestige, asyncRoute(async (req, res) => {
   const search = String(req.query.s || '').trim();
   const [allGuests, tables, s] = await Promise.all([
     store.listGuestsByWedding(req.w.id),
@@ -282,12 +291,12 @@ router.get('/:slug/accueil', guard, asyncRoute(async (req, res) => {
   res.render('couple/accueil', { w: req.w, guests, tables, search, s });
 }));
 
-router.get('/:slug/checkin/:token', guard, asyncRoute(async (req, res) => {
+router.get('/:slug/checkin/:token', guard, requirePrestige, asyncRoute(async (req, res) => {
   const guest = await store.getGuestByToken(req.params.token, req.w.id);
   res.render('couple/checkin', { w: req.w, guest, done: req.query.done === '1' });
 }));
 
-router.post('/:slug/checkin/:token', guard, asyncRoute(async (req, res) => {
+router.post('/:slug/checkin/:token', guard, requirePrestige, asyncRoute(async (req, res) => {
   await store.checkinGuest(req.params.token, req.w.id);
   if (req.body.back === 'accueil') return res.redirect(`/espace/${req.w.slug}/accueil?ok=${encodeURIComponent('Entrée validée ✓')}`);
   res.redirect(`/espace/${req.w.slug}/checkin/${req.params.token}?done=1`);

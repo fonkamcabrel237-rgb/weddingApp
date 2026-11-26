@@ -64,10 +64,10 @@ router.post('/commande', orderLimiter, upload.array('photos', 30), checkHoneypot
     if (pos === 1) await store.updateWedding(w.id, { cover_photo: name });
   }
 
-  await U.notify(`🆕 Nouvelle commande ${U.PLANS[w.plan].name} : ${U.coupleNames(w)}\n📅 ${b.event_date || '?'} — ${b.city || '?'}\n📞 ${U.prettyPhone(b.phone)}${b.partner ? `\n🤝 Partenaire : ${b.partner}` : ''}\n✏️ ${U.BASE_URL()}/admin/mariages/${w.id}`);
+  await U.notify(`🆕 Nouvelle commande ${U.getPlan(w.plan).name} : ${U.coupleNames(w)}\n📅 ${b.event_date || '?'} — ${b.city || '?'}\n📞 ${U.prettyPhone(b.phone)}${b.partner ? `\n🤝 Partenaire : ${b.partner}` : ''}\n✏️ ${U.BASE_URL()}/admin/mariages/${w.id}`);
 
   res.cookie(`c${w.id}`, w.access_key, cookieOpts(120));
-  res.render('merci', { w, plan: U.PLANS[w.plan] });
+  res.render('merci', { w, plan: U.getPlan(w.plan) });
 }));
 
 // ---------- Faire-part ----------
@@ -122,22 +122,23 @@ router.post('/i/:slug/rsvp', rsvpLimiter, checkHoneypot, loadWedding, asyncRoute
   const phone = U.normalizePhone(b.phone);
   if (!name && !b.token && !phone) return res.redirect(`/i/${w.slug}?err=name#rsvp`);
 
+  const prestige = U.isPrestige(w);
   let guest = await store.findGuestForRsvp(w.id, { token: b.token, phone, name });
 
   if (!guest) {
-    if (w.strict_rsvp) {
+    if (prestige && w.strict_rsvp) {
       return res.redirect(`/i/${w.slug}?err=not_on_list#rsvp`);
     }
     const currentStats = await stats(w.id);
     const reqSeats = Math.max(1, Math.min(10, parseInt(b.count, 10) || 1));
-    if (attending === 'yes' && currentStats.guests.activeSeats + reqSeats > (w.max_guests || 200)) {
+    if (prestige && attending === 'yes' && currentStats.guests.activeSeats + reqSeats > (w.max_guests || 200)) {
       return res.redirect(`/i/${w.slug}?err=quota_full#rsvp`);
     }
     if (!name) return res.redirect(`/i/${w.slug}?err=name#rsvp`);
     guest = await addGuest(w.id, { name, phone, seats: reqSeats, source: 'public' });
   }
 
-  const max = guest.source === 'list' ? guest.seats : 10;
+  const max = prestige && guest.source === 'list' ? guest.seats : 10;
   const count = attending === 'yes' ? Math.max(1, Math.min(max, parseInt(b.count, 10) || 1)) : 0;
   const oldTableId = guest.table_id;
 
@@ -151,14 +152,16 @@ router.post('/i/:slug/rsvp', rsvpLimiter, checkHoneypot, loadWedding, asyncRoute
   if (guest.source === 'public' && name) patch.name = name;
   await store.updateGuest(guest.id, patch);
 
-  // Mise à jour automatique de la table et des sièges selon la réponse
-  if (attending === 'no') {
-    await store.updateGuest(guest.id, { table_id: null, table_name: null, seat_numbers: null });
-    if (oldTableId) await recomputeTableSeats(oldTableId);
-  } else if (oldTableId) {
-    await recomputeTableSeats(oldTableId);
-  } else {
-    await assignGuestToTable(w.id, guest.id, 'auto');
+  // Mise à jour automatique de la table et des sièges (uniquement pour Prestige VIP)
+  if (prestige) {
+    if (attending === 'no') {
+      await store.updateGuest(guest.id, { table_id: null, table_name: null, seat_numbers: null });
+      if (oldTableId) await recomputeTableSeats(oldTableId);
+    } else if (oldTableId) {
+      await recomputeTableSeats(oldTableId);
+    } else {
+      await assignGuestToTable(w.id, guest.id, 'auto');
+    }
   }
 
   const updatedGuest = await store.getGuestById(guest.id);
@@ -172,8 +175,9 @@ router.get('/i/:slug/merci', loadWedding, asyncRoute(async (req, res) => {
   res.render('rsvp-merci', { w: req.w, guest });
 }));
 
-// Pass d'entrée (QR) pour le contrôle à l'entrée de la salle
+// Pass d'entrée (QR) pour le contrôle à l'entrée de la salle (exclusivité Prestige VIP)
 router.get('/i/:slug/pass/:token', loadWedding, asyncRoute(async (req, res) => {
+  if (!U.isPrestige(req.w)) return res.redirect(`/i/${req.w.slug}`);
   const guest = await store.getGuestByToken(req.params.token, req.w.id);
   if (!guest || guest.status !== 'yes') return res.redirect(`/i/${req.w.slug}`);
   const qr = await QRCode.toDataURL(`${U.BASE_URL()}/espace/${req.w.slug}/checkin/${guest.token}`, { margin: 1, width: 600 });
@@ -182,6 +186,7 @@ router.get('/i/:slug/pass/:token', loadWedding, asyncRoute(async (req, res) => {
 
 // Billet QR téléchargeable (SVG haute définition intégrant QR + Nom de l'invité + Nom de la Table)
 router.get('/i/:slug/pass/:token/ticket.svg', loadWedding, asyncRoute(async (req, res) => {
+  if (!U.isPrestige(req.w)) return res.redirect(`/i/${req.w.slug}`);
   const guest = await store.getGuestByToken(req.params.token, req.w.id);
   if (!guest || guest.status !== 'yes') return res.redirect(`/i/${req.w.slug}`);
   const qrSvg = await QRCode.toString(`${U.BASE_URL()}/espace/${req.w.slug}/checkin/${guest.token}`, {

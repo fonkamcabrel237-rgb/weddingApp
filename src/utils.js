@@ -17,18 +17,44 @@ const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next
 
 const PLANS = {
   essentiel: {
-    name: 'Essentiel', price: 35000,
-    features: ['Page invitation personnalisée', 'Compte à rebours', 'Localisation GPS + itinéraire', 'RSVP en ligne + WhatsApp', 'Galerie 10 photos', 'QR code pour cartes imprimées'],
+    name: 'Essentielle',
+    price: 35000,
+    tagline: 'L’invitation digitale chic et rapide à partager sur WhatsApp.',
+    features: [
+      'Faire-part animé (enveloppe scellée, photos, musique & compte à rebours)',
+      'Programme complet (Dot, Mairie, Église, Soirée) + GPS Maps & Waze en 1 clic',
+      'Confirmations de présence (RSVP ouvert) & Livre d’or en direct',
+      'Cagnotte MTN MoMo & Orange Money directe (0 % de commission)',
+      'QR Code HD inclus pour vos éventuels cartons papier',
+    ],
   },
   prestige: {
-    name: 'Prestige', price: 50000,
-    features: ['Tout Essentiel', 'Liste d\'invités avec liens personnalisés', 'Envoi WhatsApp en 1 clic', 'Cagnotte MoMo / OM intégrée', 'Livre d\'or', 'Galerie 30 photos', 'Musique de fond'],
-  },
-  royal: {
-    name: 'Royal', price: 75000,
-    features: ['Tout Prestige', 'Dot + mariage civil + religieux + réception', 'Relances automatisées J-7 / J-1', 'Contrôle des entrées (QR invités)', 'Galerie illimitée', 'Thème sur mesure', 'Accompagnement prioritaire'],
+    name: 'Prestige VIP',
+    price: 50000,
+    tagline: 'Zéro incruste : maîtrisez vos invités, vos tables et l’entrée au siège près.',
+    features: [
+      'Tout le contenu de la formule Essentielle + Couleurs sur-mesure',
+      'Invitations WhatsApp nominatives en 1 clic + messages de relance prêts',
+      'Liste fermée anti-incruste (seuls vos invités inscrits peuvent confirmer)',
+      'Plan de table intelligent par affinité + numéros de sièges & Export Excel',
+      'Pass d’entrée QR Code individuel (Nom + Table) & Scan hôtesses le jour J',
+      'Accompagnement VIP : nous importons votre liste d’invités avec vous',
+    ],
   },
 };
+
+function normalizePlan(plan) {
+  return String(plan || '').toLowerCase() === 'essentiel' ? 'essentiel' : 'prestige';
+}
+
+function getPlan(plan) {
+  return PLANS[normalizePlan(plan)];
+}
+
+function isPrestige(weddingOrPlan) {
+  const raw = weddingOrPlan && typeof weddingOrPlan === 'object' ? weddingOrPlan.plan : weddingOrPlan;
+  return normalizePlan(raw) === 'prestige';
+}
 
 const THEMES = {
   royal: 'Royal — noir & or',
@@ -251,7 +277,7 @@ function csvEscape(v) {
 }
 
 module.exports = {
-  TZ, BASE_URL, mediaUrl, asyncRoute, PLANS, THEMES, CUSTOM_PALETTES, GUEST_CATEGORIES, sanitizeHex, customThemeStyle,
+  TZ, BASE_URL, mediaUrl, asyncRoute, PLANS, normalizePlan, getPlan, isPrestige, THEMES, CUSTOM_PALETTES, GUEST_CATEGORIES, sanitizeHex, customThemeStyle,
   slugify, token, normalizePhone, prettyPhone, localPhone, waLink, parseLocal,
   fmtDate, fmtTime, fmtMoney, coupleNames, eventLabel, inviteUrl, inviteMessage, reminderMessage,
   parseProgram, mapsEmbed, mapsDirections, notify, csvEscape,

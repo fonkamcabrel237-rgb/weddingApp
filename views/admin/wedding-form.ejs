@@ -200,7 +200,7 @@
       <div class="form-section-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--gold)"></i> Données Commerciales & Partenaires</div>
       <div class="grid g4">
         <label>Formule souscrite
-          <select name="plan"><% Object.entries(PLANS).forEach(function([k, p]) { %><option value="<%= k %>" <%= v('plan', 'prestige') === k ? 'selected' : '' %>><%= p.name %></option><% }) %></select>
+          <select name="plan" id="adminPlanSelect"><% Object.entries(PLANS).forEach(function([k, p]) { %><option value="<%= k %>" <%= normalizePlan(v('plan', 'prestige')) === k ? 'selected' : '' %>><%= p.name %> (<%= fmtMoney(p.price) %>)</option><% }) %></select>
         </label>
         <label>Montant facturé (FCFA)<input name="price" inputmode="numeric" value="<%= v('price', 50000) %>"></label>
         <label>Partenaire apporteur<input name="partner" value="<%= v('partner') %>" placeholder="Nom du wedding planner"></label>

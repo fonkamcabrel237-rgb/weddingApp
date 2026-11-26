@@ -9,7 +9,7 @@ process.env.SESSION_SECRET = 'test-session-secret-random-32-chars';
 
 const app = require('../server');
 const { store } = require('../src/db');
-const { addGuest, addTable, ensureDemoSeeded } = require('../src/weddings');
+const { createWedding, addGuest, addTable, ensureDemoSeeded } = require('../src/weddings');
 
 let server;
 const PORT = 3001;
@@ -318,4 +318,84 @@ test('NIVEAU 2.6 — Conformité CNIL (Bandeau cookies) & Protection Anti-Spam (
   }
   assert.strictEqual(lastStatus, 429, "Doit bloquer avec HTTP 429 au-delà de la limite d'envois autorisée");
   resetRateLimits();
+});
+
+test('NIVEAU 2.7 — Offres 35k/50k & Verrouillage strict des fonctions Prestige VIP pour Essentielle', async () => {
+  const { resetRateLimits } = require('../src/security');
+  resetRateLimits();
+
+  // 1. Page d'accueil : 2 formules claires (35 000 FCFA et 50 000 FCFA)
+  const home = await request('/');
+  assert.strictEqual(home.status, 200);
+  assert.ok(home.body.includes('35 000 FCFA') && home.body.includes('50 000 FCFA'), 'Doit afficher les 2 offres à 35k et 50k FCFA');
+  assert.ok(!home.body.includes('75 000 FCFA'), "Ne doit plus afficher l'ancienne 3e formule à 75k");
+
+  // 2. Création d'un mariage en formule Essentielle (35 000 FCFA)
+  const wEss = await createWedding({
+    bride: 'Clarisse',
+    groom: 'Patrick',
+    slug: 'test-essentiel-lock',
+    plan: 'essentiel',
+    status: 'published',
+    theme: 'custom', // doit retomber sur 'royal' car custom = Prestige VIP
+  });
+  assert.strictEqual(wEss.price, 35000);
+  assert.strictEqual(wEss.strict_rsvp, 0, 'Essentielle doit ouvrir le RSVP public par défaut');
+  assert.strictEqual(wEss.theme, 'royal', 'Le thème sur-mesure doit être réservé à Prestige VIP');
+
+  try {
+    // 3. RSVP public ouvert : un invité confirme librement, mais n'a accès ni aux tables ni au Pass QR
+    const rsvpRes = await request(`/i/${wEss.slug}/rsvp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ name: 'Invité Classique', phone: '691234567', attending: 'yes', count: '2' }).toString(),
+    });
+    assert.strictEqual(rsvpRes.status, 302);
+    const merciUrl = rsvpRes.headers.get('location');
+    const gToken = new URL(merciUrl, BASE).searchParams.get('g');
+
+    const merciPage = await request(merciUrl);
+    assert.strictEqual(merciPage.status, 200);
+    assert.ok(!merciPage.body.includes('Voir mon Pass QR'), 'Pas de Pass QR pour la formule Essentielle');
+
+    const passAttempt = await request(`/i/${wEss.slug}/pass/${gToken}`);
+    assert.strictEqual(passAttempt.status, 302, "L'accès direct au Pass QR doit être bloqué en formule Essentielle");
+
+    // 4. Connexion à l'espace mariés Essentielle -> les routes Prestige VIP sont verrouillées
+    const loginRes = await request(`/espace/${wEss.slug}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `key=${wEss.access_key}`,
+    });
+    const cookieVal = loginRes.cookies.find((c) => c.startsWith(`c${wEss.id}=`)).split(';')[0];
+
+    const dash = await request(`/espace/${wEss.slug}`, { headers: { Cookie: cookieVal } });
+    assert.strictEqual(dash.status, 200);
+    assert.ok(dash.body.includes('+15 000 FCFA'), "Doit afficher la carte d'upgrade vers Prestige VIP (+15 000 FCFA)");
+
+    for (const [method, url, body] of [
+      ['POST', `/espace/${wEss.slug}/tables`, 'name=TableVIP&capacity=10'],
+      ['POST', `/espace/${wEss.slug}/invites`, 'name=Test&seats=2'],
+      ['GET', `/espace/${wEss.slug}/export.csv`, null],
+      ['GET', `/espace/${wEss.slug}/accueil`, null],
+    ]) {
+      const locked = await request(url, {
+        method,
+        headers: Object.assign({ Cookie: cookieVal }, body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
+        body: body || undefined,
+      });
+      assert.strictEqual(locked.status, 302, `La route Prestige ${url} doit rediriger quand le couple est en Essentielle`);
+      assert.ok((locked.headers.get('location') || '').includes('prestige-upsell'), 'Doit rediriger vers #prestige-upsell');
+    }
+
+    // 5. Passage du couple en formule Prestige VIP -> déblocage immédiat !
+    await store.updateWedding(wEss.id, { plan: 'prestige', price: 50000 });
+    const unlockedCsv = await request(`/espace/${wEss.slug}/export.csv`, { headers: { Cookie: cookieVal } });
+    assert.strictEqual(unlockedCsv.status, 200, "L'export Excel se débloque dès passage en Prestige VIP");
+    const unlockedAccueil = await request(`/espace/${wEss.slug}/accueil`, { headers: { Cookie: cookieVal } });
+    assert.strictEqual(unlockedAccueil.status, 200, 'Le mode accueil Jour J se débloque dès passage en Prestige VIP');
+  } finally {
+    await store.deleteWedding(wEss.id);
+    resetRateLimits();
+  }
 });

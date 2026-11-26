@@ -73,14 +73,23 @@
 
 <section class="s" id="tarifs">
   <div class="container">
-    <div class="s-title"><h2>Des formules claires</h2><p class="muted">Paiement unique par MoMo ou Orange Money. Aucun abonnement. Le faire-part reste en ligne 6 mois.</p></div>
-    <div class="grid g3">
+    <div class="s-title">
+      <h2>2 formules simples, sans frais cachés</h2>
+      <p class="muted">Paiement unique par MTN MoMo ou Orange Money après validation de votre aperçu. En ligne pendant 6 mois.</p>
+    </div>
+    <div class="grid g2" style="max-width:880px;margin:0 auto;align-items:stretch">
       <% Object.entries(PLANS).forEach(function([key, p]) { %>
-        <div class="card plan <%= key === 'prestige' ? 'featured' : '' %>">
-          <% if (key === 'prestige') { %><span class="ribbon"><i class="fa-solid fa-star"></i> LE PLUS CHOISI</span><% } %>
+        <div class="card plan <%= key === 'prestige' ? 'featured' : '' %>" style="display:flex;flex-direction:column">
+          <% if (key === 'prestige') { %><span class="ribbon"><i class="fa-solid fa-crown"></i> LA PLUS CHOISIE · ZÉRO INCRUSTE</span><% } %>
           <h3><%= p.name %></h3>
           <div class="price"><%= fmtMoney(p.price) %></div>
-          <ul><% p.features.forEach(function(f) { %><li><i class="fa-solid fa-check"></i> <%= f %></li><% }) %></ul>
+          <% if (p.tagline) { %><p class="muted small" style="margin:-.2rem 0 .8rem"><%= p.tagline %></p><% } %>
+          <% if (key === 'prestige') { %>
+            <div style="background:rgba(184,145,63,.12);border:1px solid rgba(184,145,63,.35);border-radius:10px;padding:.5rem .75rem;margin-bottom:.85rem;font-size:.82rem;color:#6b4e16">
+              <strong>💡 Astuce mariés :</strong> bloquer seulement 2 ou 3 invités non prévus rembourse déjà les 15 000 FCFA d'écart sur votre facture traiteur !
+            </div>
+          <% } %>
+          <ul style="flex:1"><% p.features.forEach(function(f) { %><li><i class="fa-solid fa-check"></i> <%= f %></li><% }) %></ul>
           <a class="btn <%= key === 'prestige' ? 'btn-gold' : 'btn-outline' %>" href="#commander" data-plan="<%= key %>"><i class="fa-solid fa-check"></i> Choisir <%= p.name %></a>
         </div>
       <% }) %>
@@ -162,7 +171,7 @@
       <div class="card">
         <h3><i class="fa-solid fa-circle-question" style="color:var(--gold)"></i> FAQ</h3>
         <details><summary>Mes invités âgés n'ont pas de smartphone ?</summary><p class="muted">Imprimez quelques cartons avec le QR code de votre invitation, ou laissez vos enfants répondre pour eux. Vous pouvez aussi ajouter leurs réponses manuellement.</p></details>
-        <details><summary>Comment fonctionne la cagnotte ?</summary><p class="muted">Les invités paient par MTN MoMo ou Orange Money depuis la page. Vous suivez chaque don en direct et l'argent vous est reversé après l'événement. Vous pouvez aussi afficher simplement vos numéros MoMo/OM.</p></details>
+        <details><summary>Comment fonctionne la cagnotte ?</summary><p class="muted">Les invités contribuent en 1 clic par MTN MoMo ou Orange Money depuis votre faire-part. <strong>L'argent arrive directement et instantanément sur vos propres numéros MoMo / OM</strong>, sans intermédiaire et avec 0 % de commission.</p></details>
         <details><summary>Combien de temps reste-t-il en ligne ?</summary><p class="muted">6 mois après l'événement, de quoi partager les photos et remercier vos invités.</p></details>
         <details><summary>Je peux modifier après publication ?</summary><p class="muted">Oui, envoyez-nous vos changements sur WhatsApp : c'est inclus.</p></details>
       </div>
@@ -187,7 +196,14 @@
     var pBg = document.getElementById('orderPickerBg');
     var hBg = document.getElementById('orderHexBg');
     if (sel && box) {
-      sel.addEventListener('change', function () { box.style.display = sel.value === 'custom' ? 'block' : 'none'; });
+      sel.addEventListener('change', function () {
+        var isCustom = sel.value === 'custom';
+        box.style.display = isCustom ? 'block' : 'none';
+        var planEl = document.getElementById('planSelect');
+        if (isCustom && planEl && planEl.value === 'essentiel') {
+          planEl.value = 'prestige';
+        }
+      });
     }
     if (pAcc && hAcc) {
       pAcc.addEventListener('input', function () { hAcc.value = pAcc.value; });

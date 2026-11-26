@@ -1,7 +1,7 @@
 // Logique métier partagée (compatible Supabase PostgreSQL & SQLite local) :
 // création de faire-part, invités, tables, placement automatique, cagnotte.
 const { store, nowStr } = require('./db');
-const { slugify, token, normalizePhone, sanitizeHex, PLANS, GUEST_CATEGORIES } = require('./utils');
+const { slugify, token, normalizePhone, sanitizeHex, PLANS, normalizePlan, isPrestige, GUEST_CATEGORIES } = require('./utils');
 
 async function uniqueSlug(base) {
   const root = slugify(base) || 'mariage';
@@ -14,9 +14,15 @@ async function uniqueSlug(base) {
 }
 
 async function createWedding(data) {
-  const plan = PLANS[data.plan] ? data.plan : 'prestige';
+  const plan = normalizePlan(data.plan);
+  const prestige = isPrestige(plan);
   const slug = await uniqueSlug(data.slug || `${data.bride}-et-${data.groom}`);
   const maxGuests = Math.max(10, Math.min(5000, parseInt(data.max_guests, 10) || 200));
+  const requestedTheme = data.theme || 'royal';
+  const safeTheme = !prestige && requestedTheme === 'custom' ? 'royal' : requestedTheme;
+  const safeStrictRsvp = !prestige
+    ? 0
+    : (data.strict_rsvp === undefined ? 1 : Number(Boolean(data.strict_rsvp)));
 
   return store.insertWedding({
     slug,
@@ -39,7 +45,7 @@ async function createWedding(data) {
     maps_query: data.maps_query || null,
     program: JSON.stringify(data.program || []),
     dress_code: data.dress_code || null,
-    theme: data.theme || 'royal',
+    theme: safeTheme,
     custom_bg: sanitizeHex(data.custom_bg, '#faf6f0'),
     custom_accent: sanitizeHex(data.custom_accent, '#b8913f'),
     music_url: data.music_url || null,
@@ -54,7 +60,7 @@ async function createWedding(data) {
     om_number: normalizePhone(data.om_number) || null,
     om_name: data.om_name || null,
     max_guests: maxGuests,
-    strict_rsvp: data.strict_rsvp === undefined ? 1 : Number(Boolean(data.strict_rsvp)),
+    strict_rsvp: safeStrictRsvp,
     access_key: data.access_key || token(12),
     lead_id: data.lead_id || null,
   });
@@ -359,8 +365,8 @@ async function ensureDemoSeeded() {
     const w = await createWedding({
       slug: 'demo',
       status: 'published',
-      plan: 'royal',
-      price: 75000,
+      plan: 'prestige',
+      price: 50000,
       paid: 1,
       partner: 'Prestige Events Douala',
       partner_commission: 10000,

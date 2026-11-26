@@ -47,7 +47,7 @@
           </div>
 
           <div class="admin-item-body">
-            <div><span class="meta-label">Formule :</span> <strong><%= (PLANS[l.plan] || {}).name || l.plan %></strong></div>
+            <div><span class="meta-label">Formule :</span> <strong><%= getPlan(l.plan).name %></strong></div>
             <div><span class="meta-label">WhatsApp :</span> <%= prettyPhone(l.phone) %></div>
             <% if (l.partner) { %><div><span class="meta-label">Apporteur :</span> <%= l.partner %></div><% } %>
           </div>
@@ -90,7 +90,7 @@
         <div class="admin-item-stats">
           <div class="stat-box">
             <span class="sb-num"><%= fmtMoney(w.price) %></span>
-            <span class="sb-label">Tarif (<%= (PLANS[w.plan] || {}).name %>)</span>
+            <span class="sb-label">Tarif (<%= getPlan(w.plan).name %>)</span>
           </div>
           <div class="stat-box">
             <span class="sb-num"><%= w.s.guests.yes %></span>

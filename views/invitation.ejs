@@ -46,7 +46,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="/static/css/invite.css?v=11.0">
 </head>
-<body class="theme-<%= w.theme || 'royal' %>" <% if (w.theme === 'custom') { %>style="<%= customThemeStyle(w) %>"<% } %>>
+<body class="theme-<%= (!isPrestige(w) && w.theme === 'custom') ? 'royal' : (w.theme || 'royal') %>" <% if (isPrestige(w) && w.theme === 'custom') { %>style="<%= customThemeStyle(w) %>"<% } %>>
 
 <% if (isDraft) { %>
   <div class="draft-banner">👀 Aperçu privé — ce faire-part n'est pas encore publié. <a href="/espace/<%= w.slug %>">Espace mariés</a></div>
@@ -93,7 +93,7 @@
     <p class="script big">Cher(e) <%= guest.name %>,</p>
     <p>Votre présence à nos côtés rendra ce jour encore plus beau.
       <% if (guest.seats > 1) { %>Cette invitation est valable pour <strong><%= guest.seats %> personnes</strong>.<% } else { %>Cette invitation vous est personnellement adressée.<% } %>
-      <% if (guest.table_name) { %><br>🪑 Table réservée : <strong><%= guest.table_name %></strong><% if (guest.seat_numbers) { %> (Siège(s) <%= guest.seat_numbers %>)<% } %>.<% } %>
+      <% if (isPrestige(w) && guest.table_name) { %><br>🪑 Table réservée : <strong><%= guest.table_name %></strong><% if (guest.seat_numbers) { %> (Siège(s) <%= guest.seat_numbers %>)<% } %>.<% } %>
     </p>
   </section>
   <% } %>
@@ -170,8 +170,8 @@
     <% if (error === 'quota_full') { %><p class="alert"><i class="fa-solid fa-chair"></i> Toutes les places assises prévues pour la réception sont complètes. Contactez directement les mariés.</p><% } %>
     <% if (error === 'draft' || isDraft) { %><p class="alert">Les réponses seront ouvertes dès la publication du faire-part.</p><% } %>
     <% if (guest && guest.status !== 'pending') { %>
-      <p class="alert ok">Nous avons bien reçu votre réponse : <strong><%= guest.status === 'yes' ? 'présent(e) (' + guest.attending_count + ' pers.)' : 'absent(e)' %></strong><% if (guest.status === 'yes' && guest.table_name) { %> · 🪑 <strong><%= guest.table_name %></strong><% if (guest.seat_numbers) { %> (Siège(s) <%= guest.seat_numbers %>)<% } %><% } %>. Vous pouvez la modifier ci-dessous.
-        <% if (guest.status === 'yes') { %><br><a class="link" href="/i/<%= w.slug %>/pass/<%= guest.token %>">🎟️ Voir mon pass d'entrée (Nom + Table)</a><% } %></p>
+      <p class="alert ok">Nous avons bien reçu votre réponse : <strong><%= guest.status === 'yes' ? 'présent(e) (' + guest.attending_count + ' pers.)' : 'absent(e)' %></strong><% if (isPrestige(w) && guest.status === 'yes' && guest.table_name) { %> · 🪑 <strong><%= guest.table_name %></strong><% if (guest.seat_numbers) { %> (Siège(s) <%= guest.seat_numbers %>)<% } %><% } %>. Vous pouvez la modifier ci-dessous.
+        <% if (isPrestige(w) && guest.status === 'yes') { %><br><a class="link" href="/i/<%= w.slug %>/pass/<%= guest.token %>">🎟️ Voir mon pass d'entrée (Nom + Table)</a><% } %></p>
     <% } %>
     <% if (deadlinePassed && !guest) { %>
       <p class="alert">La date limite de réponse est passée. Contactez directement les mariés.</p>
