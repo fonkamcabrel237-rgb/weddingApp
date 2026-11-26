@@ -44,6 +44,33 @@ if (!isSupabaseEnabled()) {
   app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true }));
 }
 
+app.get('/google77ad2c934068be32.html', (req, res) => {
+  res.type('text/html').send('google-site-verification: google77ad2c934068be32.html');
+});
+
+app.get('/robots.txt', (req, res) => {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.get('host') || 'www.ndolos.site').split(',')[0].trim();
+  res.type('text/plain').send(
+    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /espace\nSitemap: ${proto}://${host}/sitemap.xml\n`
+  );
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.get('host') || 'www.ndolos.site').split(',')[0].trim();
+  const base = `${proto}://${host}`;
+  const today = new Date().toISOString().slice(0, 10);
+  res.type('application/xml').send(
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    `  <url><loc>${base}/</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>\n` +
+    `  <url><loc>${base}/i/demo</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>\n` +
+    `  <url><loc>${base}/confidentialite</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.3</priority></url>\n` +
+    `</urlset>`
+  );
+});
+
 app.get('/healthz', (req, res) => {
   res.status(200).json({
     ok: true,

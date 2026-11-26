@@ -44,6 +44,14 @@ test('NIVEAU 2.1 — Consultation publique, Healthcheck et cas d’erreur 404', 
   assert.strictEqual(health.status, 200);
   assert.ok(health.body.includes('"ok":true'), 'Le endpoint /healthz doit répondre ok: true');
 
+  const gsc = await request('/google77ad2c934068be32.html');
+  assert.strictEqual(gsc.status, 200);
+  assert.strictEqual(gsc.body.trim(), 'google-site-verification: google77ad2c934068be32.html', 'Le fichier Google Search Console doit être servi exactement');
+
+  const sitemap = await request('/sitemap.xml');
+  assert.strictEqual(sitemap.status, 200);
+  assert.ok(sitemap.body.includes('<urlset'), 'Le sitemap XML doit être généré pour Google Search Console');
+
   const home = await request('/');
   assert.strictEqual(home.status, 200);
   assert.ok(home.body.includes('Votre faire-part de mariage') || home.body.includes('Votre faire-part'), 'Doit afficher la landing page');
