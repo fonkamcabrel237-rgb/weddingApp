@@ -1,11 +1,22 @@
-<%- include('../partials/head', { title: 'Connexion admin', noindex: true }) %>
+<%- include('../partials/head', { title: 'Connexion administration', noindex: true }) %>
 <div class="center-box">
-  <form class="card" method="post" action="/admin/login">
-    <h1>Espace pro</h1>
+  <form class="card" method="post" action="/admin/login" autocomplete="on">
+    <div style="display:flex;align-items:center;gap:.55rem;margin-bottom:.25rem">
+      <i class="fa-solid fa-shield-halved" style="color:var(--gold);font-size:1.25rem"></i>
+      <h1 style="margin:0">Administration</h1>
+    </div>
+    <p class="muted" style="font-size:.86rem;margin:0 0 1rem">Appareil autorisé · Accès protégé</p>
     <% if (error) { %><p class="error"><%= error %></p><% } %>
     <input type="hidden" name="next" value="<%= next %>">
-    <label>Mot de passe<input type="password" name="password" autofocus required></label>
-    <button class="btn btn-gold" style="width:100%">Connexion</button>
+    <label>Mot de passe administrateur
+      <input type="password" name="password" autocomplete="current-password" autofocus required>
+    </label>
+    <button class="btn btn-gold" style="width:100%">Déverrouiller le tableau de bord</button>
+    <div style="text-align:center;margin-top:1rem">
+      <a href="/admin/logout?lock=1" class="muted" style="font-size:.8rem;text-decoration:underline">
+        <i class="fa-solid fa-lock"></i> Verrouiller cet appareil (mode furtif)
+      </a>
+    </div>
   </form>
 </div>
 </body></html>

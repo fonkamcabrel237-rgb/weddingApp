@@ -5,39 +5,90 @@ const { store } = require('../db');
 const U = require('../utils');
 const { upload, uploadAudio, saveImage, saveAudio, createAudioUploadSession, resolveMusicUrl, deleteImage } = require('../uploads');
 const { createWedding, stats, ensureDemoSeeded } = require('../weddings');
-const { requireAdmin, cookieOpts } = require('../auth');
+const {
+  requireAdmin,
+  cookieOpts,
+  hasAdminDevice,
+  isAdmin,
+  adminDeviceToken,
+  adminSessionToken,
+  verifyAdminAccessKey,
+  verifyAdminPassword,
+  renderStealth404,
+} = require('../auth');
+const { createRateLimiter } = require('../security');
 
 const router = express.Router();
 const { asyncRoute } = U;
 
-// ---------- Connexion ----------
-const attempts = new Map();
-router.get('/login', (req, res) => res.render('admin/login', { error: null, next: req.query.next || '/admin' }));
-router.post('/login', (req, res) => {
-  const ip = req.ip;
-  const a = attempts.get(ip) || { n: 0, t: Date.now() };
-  if (Date.now() - a.t > 15 * 60000) { a.n = 0; a.t = Date.now(); }
-  if (a.n >= 10) return res.status(429).render('admin/login', { error: 'Trop de tentatives, réessaie dans 15 min.', next: '/admin' });
+const adminLoginLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  keyPrefix: 'admin_login',
+  message: 'Trop de tentatives, réessayez dans 15 minutes.',
+});
 
-  const given = String(req.body.password || '').trim();
-  const envPass = String(process.env.ADMIN_PASSWORD || 'change-moi').trim();
-  const validPasswords = [envPass];
-  if (envPass === 'admin' || envPass === 'change-moi') {
-    validPasswords.push('admin', 'change-moi');
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const failDelayMs = () => (process.env.NODE_ENV === 'test' ? 25 : 900);
+
+// En-têtes de sécurité systématiques sur tout le périmètre /admin
+router.use((req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cache-Control', 'no-store, private');
+  next();
+});
+
+// Déverrouillage d'appareil via le favori secret (?key=ADMIN_ACCESS_KEY) sur /admin ou /admin/login
+router.use(asyncRoute(async (req, res, next) => {
+  if (req.method === 'GET' && typeof req.query.key === 'string' && (req.path === '/' || req.path === '/login')) {
+    if (!verifyAdminAccessKey(req.query.key)) {
+      await sleep(failDelayMs());
+      return renderStealth404(res);
+    }
+    res.cookie('adm_dev', adminDeviceToken(), cookieOpts(90, req));
+    return res.redirect(isAdmin(req) ? '/admin' : '/admin/login');
+  }
+  next();
+}));
+
+// ---------- Connexion ----------
+router.get('/login', (req, res) => {
+  if (!hasAdminDevice(req)) return renderStealth404(res);
+  if (isAdmin(req)) return res.redirect('/admin');
+  const rawNext = String(req.query.next || '/admin');
+  const safeNext = rawNext.startsWith('/admin') && !rawNext.startsWith('//') ? rawNext : '/admin';
+  res.render('admin/login', { error: null, next: safeNext });
+});
+
+router.post('/login', adminLoginLimiter, asyncRoute(async (req, res) => {
+  if (!hasAdminDevice(req)) {
+    await sleep(failDelayMs());
+    return renderStealth404(res);
   }
 
-  const givenBuf = Buffer.from(given);
-  const ok = givenBuf.length > 0 && validPasswords.some((p) => {
-    const expBuf = Buffer.from(p);
-    return expBuf.length === givenBuf.length && crypto.timingSafeEqual(expBuf, givenBuf);
-  });
-  if (!ok) { a.n++; attempts.set(ip, a); return res.render('admin/login', { error: 'Mot de passe incorrect.', next: req.body.next }); }
-  attempts.delete(ip);
-  res.cookie('adm', 'ok', cookieOpts(30));
-  const next = String(req.body.next || '/admin');
-  res.redirect(next.startsWith('/') && !next.startsWith('//') ? next : '/admin');
+  const rawNext = String(req.body.next || '/admin');
+  const safeNext = rawNext.startsWith('/admin') && !rawNext.startsWith('//') ? rawNext : '/admin';
+
+  if (!verifyAdminPassword(req.body.password)) {
+    await sleep(failDelayMs());
+    return res.status(401).render('admin/login', { error: 'Mot de passe incorrect.', next: safeNext });
+  }
+
+  const devTok = adminDeviceToken();
+  if (devTok) res.cookie('adm_dev', devTok, cookieOpts(90, req));
+  res.cookie('adm', adminSessionToken(), cookieOpts(30, req));
+  res.redirect(safeNext);
+}));
+
+router.get('/logout', (req, res) => {
+  if (!hasAdminDevice(req) && !isAdmin(req)) return renderStealth404(res);
+  res.clearCookie('adm', { path: '/' });
+  if (req.query.lock === '1') {
+    res.clearCookie('adm_dev', { path: '/' });
+  }
+  res.redirect('/');
 });
-router.get('/logout', (req, res) => { res.clearCookie('adm'); res.redirect('/'); });
 
 router.use(requireAdmin);
 

@@ -4,7 +4,9 @@ const assert = require('node:assert');
 
 // Charger variables et app
 require('dotenv').config();
+process.env.NODE_ENV = 'test';
 process.env.ADMIN_PASSWORD = 'test-secret-password';
+process.env.ADMIN_ACCESS_KEY = 'test-device-key-stealth-99';
 process.env.SESSION_SECRET = 'test-session-secret-random-32-chars';
 
 const app = require('../server');
@@ -404,6 +406,83 @@ test('NIVEAU 2.7 — Offres 35k/50k & Verrouillage strict des fonctions Prestige
     assert.strictEqual(unlockedAccueil.status, 200, 'Le mode accueil Jour J se débloque dès passage en Prestige VIP');
   } finally {
     await store.deleteWedding(wEss.id);
+    resetRateLimits();
+  }
+});
+
+test('NIVEAU 2.8 — Sécurité Admin : Zéro lien public, Mode Furtif 404, Clé d’appareil & Session HMAC révocable', async () => {
+  const { resetRateLimits } = require('../src/security');
+  resetRateLimits();
+
+  // 1. Aucun lien /admin dans la landing page, la politique de confidentialité ou robots.txt
+  const home = await request('/');
+  assert.ok(!home.body.includes('/admin'), 'La landing page ne doit exposer aucun lien vers /admin');
+  const priv = await request('/confidentialite');
+  assert.ok(!priv.body.includes('/admin'), 'La page confidentialité ne doit exposer aucun lien vers /admin');
+  const robots = await request('/robots.txt');
+  assert.ok(!robots.body.includes('/admin'), 'robots.txt ne doit pas révéler le chemin /admin aux scanners');
+
+  // 2. Sans clé d'appareil : /admin, /admin/login et POST /admin/login renvoient tous une vraie 404 furtive
+  const stealthDash = await request('/admin');
+  assert.strictEqual(stealthDash.status, 404, 'Visiteur sans clé doit recevoir 404 sur /admin');
+  assert.ok(stealthDash.body.includes('Page introuvable'), 'La 404 furtive doit être identique aux 404 publiques');
+  assert.strictEqual(stealthDash.headers.get('x-robots-tag'), 'noindex, nofollow, noarchive');
+
+  const stealthLogin = await request('/admin/login');
+  assert.strictEqual(stealthLogin.status, 404, 'Visiteur sans clé doit recevoir 404 sur /admin/login');
+
+  const badKey = await request('/admin/login?key=mauvaise-cle');
+  assert.strictEqual(badKey.status, 404, 'Mauvaise clé d’appareil doit renvoyer 404 sans indice');
+
+  const stealthPost = await request('/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'password=test-secret-password',
+  });
+  assert.strictEqual(stealthPost.status, 404, 'Même avec le bon mot de passe, un POST sans appareil autorisé reçoit 404');
+
+  // 3. Déverrouillage avec la vraie clé d'appareil -> pose cookie signé adm_dev et retire ?key= de l'URL
+  const unlock = await request('/admin?key=test-device-key-stealth-99');
+  assert.strictEqual(unlock.status, 302);
+  assert.strictEqual(unlock.headers.get('location'), '/admin/login', 'Doit rediriger proprement sans la clé dans l’URL');
+  const devCookie = unlock.cookies.find((c) => c.startsWith('adm_dev='));
+  assert.ok(devCookie && devCookie.includes('HttpOnly'), 'Doit déposer le cookie signé HttpOnly adm_dev');
+  const devCookiePair = devCookie.split(';')[0];
+
+  // 4. L'appareil autorisé voit maintenant le formulaire et peut s'authentifier
+  const loginForm = await request('/admin/login', { headers: { Cookie: devCookiePair } });
+  assert.strictEqual(loginForm.status, 200);
+  assert.ok(loginForm.body.includes('Administration'));
+
+  const wrongPass = await request('/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: devCookiePair },
+    body: 'password=mauvais-mot-de-passe',
+  });
+  assert.strictEqual(wrongPass.status, 401);
+  assert.ok(wrongPass.body.includes('Mot de passe incorrect'));
+
+  const goodPass = await request('/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: devCookiePair },
+    body: 'password=test-secret-password',
+  });
+  assert.strictEqual(goodPass.status, 302);
+  assert.strictEqual(goodPass.headers.get('location'), '/admin');
+  const admCookie = goodPass.cookies.find((c) => c.startsWith('adm=')).split(';')[0];
+  const bothCookies = `${devCookiePair}; ${admCookie}`;
+
+  const adminDash = await request('/admin', { headers: { Cookie: bothCookies } });
+  assert.strictEqual(adminDash.status, 200, 'Accès accordé au dashboard avec appareil + session HMAC');
+
+  // 5. Changement du ADMIN_PASSWORD -> révoque immédiatement le cookie de session existant !
+  const prevPass = process.env.ADMIN_PASSWORD;
+  try {
+    process.env.ADMIN_PASSWORD = 'nouveau-mot-de-passe-2026';
+    const afterRotate = await request('/admin', { headers: { Cookie: bothCookies } });
+    assert.strictEqual(afterRotate.status, 302, 'L’ancien cookie de session doit être immédiatement invalidé après rotation du mot de passe');
+  } finally {
+    process.env.ADMIN_PASSWORD = prevPass;
     resetRateLimits();
   }
 });

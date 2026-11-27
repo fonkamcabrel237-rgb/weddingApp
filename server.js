@@ -52,7 +52,7 @@ app.get('/robots.txt', (req, res) => {
   const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
   const host = String(req.headers['x-forwarded-host'] || req.get('host') || 'www.ndolos.site').split(',')[0].trim();
   res.type('text/plain').send(
-    `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /espace\nSitemap: ${proto}://${host}/sitemap.xml\n`
+    `User-agent: *\nAllow: /\nDisallow: /espace\nSitemap: ${proto}://${host}/sitemap.xml\n`
   );
 });
 
